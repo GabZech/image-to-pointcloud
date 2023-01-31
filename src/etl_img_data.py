@@ -3,7 +3,6 @@
 number_of_imgs = 2 # number of 1kx1k image tiles to download. use "all" to download all available images
 raw_images_folder = "data/raw/images/"
 processed_images_folder = "data/processed/images/"
-
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
 
@@ -160,6 +159,14 @@ def get_geodataframe(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
 
     return gdf
 
+# create function to read and concatenate geodataframes
+def read_concat_gdf(gdf1, gdf2):
+    gdf_temp = pd.concat([gdf1, gdf2])
+    gdf_temp.drop_duplicates(keep="first", inplace=True)
+    gdf_temp.reset_index(drop=True, inplace=True)
+
+    return gdf_temp
+
 # create empty geodataframe
 gdf = gpd.GeoDataFrame()
 
@@ -169,10 +176,9 @@ for img_name in img_names:
     gdf_temp["kachelname"] = img_name
 
     # add gdf_temp to gdf
-    gdf = pd.concat([gdf, gdf_temp])
-    gdf.reset_index(drop=True, inplace=True)
+    gdf = read_concat_gdf(gdf, gdf_temp)
 
-print(f"Found {len(gdf)} buildings to be processed.")
+print(f"Found {len(gdf)} buildings to be processed.\n")
 
 
 #%%
@@ -202,19 +208,6 @@ def extract_string(input_string):
     else:
         return None
 
-# create function to read and concatenate geodataframes
-def read_concat_gdf(gdf_file, new_gdf):
-    if not os.path.exists(gdf_file):
-        gdf_temp = gpd.GeoDataFrame(columns=new_gdf.columns)
-    else:
-        gdf_temp = gpd.read_file(gdf_file)
-
-    gdf_temp = pd.concat([gdf_temp, new_gdf])
-    gdf_temp.drop_duplicates(keep="first", inplace=True)
-    gdf_temp.reset_index(drop=True, inplace=True)
-
-    return gdf_temp
-
 def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_folder, rewrite=False):
     # create empty dataframe to store buildings that could not be processed
     unprocessed_buildings = gpd.GeoDataFrame(columns=gdf.columns)
@@ -227,7 +220,7 @@ def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_f
         # open image
         with rasterio.open(image_path, "r") as src:
             assert src.crs == gdf.crs # check if crs of image and gdf are the same
-
+            bbox = shapely.geometry.box(*src.bounds)
             # subset gdf to buildings on the current tile
             gdf_temp = gdf[gdf["kachelname"] == img]
 
@@ -238,25 +231,37 @@ def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_f
 
                 # check if file does not exists or if it should be rewritten
                 if not os.path.exists(filename) or rewrite:
-                    try:
-                        out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
-                    except:
+
+                    # check if bounds of building are fully within bounds of image
+                    if not bbox.contains(row["geometry"]):
                         # add building to unprocessed_buildings
-                        row_df = pd.DataFrame(row).transpose()
+                        row_df = gpd.GeoDataFrame(row).transpose().set_crs(gdf.crs)
                         unprocessed_buildings = pd.concat([unprocessed_buildings, row_df], ignore_index=True)
-                    with rasterio.open(filename, "w", **out_meta) as dest:
-                        dest.write(out_image)
+                        continue
+                    else:
+                        # create mask for building
+                        out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
+                        with rasterio.open(filename, "w", **out_meta) as dest:
+                            dest.write(out_image)
                 else:
                     existing_files.append(building_id)
 
-    print(f"Skipped creating {len(existing_files)} already-existing files. Set rewrite=True to overwrite those files.")
+    if len(existing_files) > 0:
+        print(f"Skipped creating {len(existing_files)} already-existing files. Set rewrite=True to overwrite those files.\n")
 
     if unprocessed_buildings.shape[0] > 0:
-        gdf_file = dst_images_folder + "non_included_buildings.gpkg"
-        non_included_buildings = read_concat_gdf(gdf_file, unprocessed_buildings)
-        non_included_buildings.to_file(gdf_file, driver="GPKG")
-        print(f"Could not process {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings. Added those to {gdf_file}.")
+        gdf_file = dst_images_folder + "buildings_out_of_bounds.gpkg"
+        # check if file for saving buildings out of bounds already exists
+        if not os.path.exists(gdf_file):
+            gdf_temp = gpd.GeoDataFrame(columns=gdf.columns).set_crs(gdf.crs)
+        else:
+            gdf_temp = gpd.read_file(gdf_file)
+
+        # add unprocessed buildings and save to file
+        buildings_out_of_bounds = read_concat_gdf(gdf_temp, unprocessed_buildings)
+        buildings_out_of_bounds.to_file(gdf_file, driver="GPKG")
+        print(f"Skipped processing {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings whose shapes did not fully lie within the bounds of the image. Added those to {gdf_file}.\n")
     else:
-        print("All buildings were processed successfully.")
+        print("All buildings were processed successfully.\n")
 
 extract_individual_buildings(img_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
