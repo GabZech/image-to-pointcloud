@@ -1,4 +1,5 @@
 data/raw/images/*.tiff
+data/processed/images/*.tiff
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
