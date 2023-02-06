@@ -314,36 +314,38 @@ def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_f
 ################
 ### RUN CODE ###
 
-# Download metadata if not already in data/raw/images
-metadata_filename = "dop_nw.csv"
+if __name__ == "__main__":
 
-download_metadata(raw_images_folder,
-                  metadata_filename,
-                  url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
-                  skiprows=5,
-                  rewrite_download=False)
+    # Download metadata if not already in data/raw/images
+    metadata_filename = "dop_nw.csv"
 
-# read metadata
-metadata, img_names = read_metadata(raw_images_folder, metadata_filename, number_of_imgs)
+    download_metadata(raw_images_folder,
+                    metadata_filename,
+                    url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
+                    skiprows=5,
+                    rewrite_download=False)
 
-print(f"Metadata for {len(img_names)} tiles imported.")
+    # read metadata
+    metadata, img_names = read_metadata(raw_images_folder, metadata_filename, number_of_imgs)
 
-# read image tiles from API, convert and save them as .tiff
-base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
-read_convert_save_images(img_names, base_url, raw_images_folder, rewrite=False)
+    print(f"Metadata for {len(img_names)} tiles imported.")
 
-# get geodataframe containing the shapes of all buildings in the selected tiles
-gdf = gpd.GeoDataFrame()
+    # read image tiles from API, convert and save them as .tiff
+    base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
+    read_convert_save_images(img_names, base_url, raw_images_folder, rewrite=False)
 
-for img_name in img_names:
-    coords = get_coords(img_name, metadata)
-    gdf_temp = get_building_data(coords)
-    gdf_temp["kachelname"] = img_name
+    # get geodataframe containing the shapes of all buildings in the selected tiles
+    gdf = gpd.GeoDataFrame()
 
-    # add gdf_temp to gdf
-    gdf = read_concat_gdf(gdf, gdf_temp)
+    for img_name in img_names:
+        coords = get_coords(img_name, metadata)
+        gdf_temp = get_building_data(coords)
+        gdf_temp["kachelname"] = img_name
 
-print(f"Found {len(gdf)} buildings to be processed.\n")
+        # add gdf_temp to gdf
+        gdf = read_concat_gdf(gdf, gdf_temp)
 
-# create single image for each building
-extract_individual_buildings(img_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
+    print(f"Found {len(gdf)} buildings to be processed.\n")
+
+    # create single image for each building
+    extract_individual_buildings(img_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
