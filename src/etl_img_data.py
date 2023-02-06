@@ -27,6 +27,31 @@ from typing import Tuple
 ############################
 ### FUNCTION DEFINITIONS ###
 
+def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows, rewrite_download=False) -> None:
+    """Downloads metadata from url and saves it as csv file
+
+        Args:
+            raw_data_folder (str): path to folder where metadata will be saved
+            metadata_filename (str): name of metadata file
+            url_metadata (str): url of metadata file
+            skiprows (int): number of rows to skip when reading metadata file
+            rewrite_download (bool, optional): if True, metadata will be downloaded again, even if it already exists. Defaults to False.
+
+        Returns:
+            None
+    """
+    if metadata_filename not in os.listdir(raw_data_folder) or rewrite_download:
+        print("File not found. Downloading...")
+
+        response = urllib.request.urlopen(url_metadata)
+        zipfile = ZipFile(BytesIO(response.read()))
+
+        metadata = pd.read_csv(zipfile.open(metadata_filename),
+                            sep=';',
+                            skiprows=skiprows) # skip first X rows with irrelevant metadata
+
+        metadata.to_csv(raw_data_folder + metadata_filename, index=False)
+
 def read_metadata(raw_images_folder, metadata_filename, number_of_imgs) -> Tuple[pd.DataFrame, list]:
     """Reads metadata from csv file
 
@@ -292,18 +317,11 @@ def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_f
 # Download metadata if not already in data/raw/images
 metadata_filename = "dop_nw.csv"
 
-if metadata_filename not in os.listdir(raw_images_folder) or rewrite_download:
-    print("File not found. Downloading...")
-    url_metadata = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip"
-
-    response = urllib.request.urlopen(url_metadata)
-    zipfile = ZipFile(BytesIO(response.read()))
-
-    metadata = pd.read_csv(zipfile.open(metadata_filename),
-                        sep=';',
-                        skiprows=5) # skip first 5 rows with irrelevant metadata
-
-    metadata.to_csv(raw_images_folder + metadata_filename, index=False)
+download_metadata(raw_images_folder,
+                  metadata_filename,
+                  url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
+                  skiprows=5,
+                  rewrite_download=False)
 
 # read metadata
 metadata, img_names = read_metadata(raw_images_folder, metadata_filename, number_of_imgs)
