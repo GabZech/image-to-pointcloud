@@ -1,7 +1,7 @@
 #######################
 ### GOBAL VARIABLES ###
 
-number_of_imgs = 2 # number of 1kx1k image tiles to download. Use "all" to download all available images
+number_of_tiles = 2 # number of 1kx1k image tiles to download. Use "all" to download all available images
 raw_images_folder = "data/raw/images/"
 processed_images_folder = "data/processed/images/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
@@ -52,33 +52,33 @@ def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows
 
         metadata.to_csv(raw_data_folder + metadata_filename, index=False)
 
-def read_metadata(raw_images_folder, metadata_filename, number_of_imgs) -> Tuple[pd.DataFrame, list]:
+def read_metadata(raw_images_folder, metadata_filename, number_of_tiles) -> Tuple[pd.DataFrame, list]:
     """Reads metadata from csv file
 
     Args:
         raw_images_folder (str): path to folder containing metadata
         metadata_filename (str): filename of metadata file
-        number_of_imgs (int): number of images to download. Use "all" to download all available images
+        number_of_tiles (int): number of tiles to download. Use "all" to download all available tiles
 
     Returns:
-        tuple[pd.DataFrame, list]: metadata as pandas dataframe and list of image names
+        tuple[pd.DataFrame, list]: metadata as pandas dataframe and list of tile names
     """
     metadata = pd.read_csv(raw_images_folder + metadata_filename)
 
     # select metadata for subset of images
-    if number_of_imgs == "all":
-        img_names = list(metadata['Kachelname'].values)
+    if number_of_tiles == "all":
+        tile_names = list(metadata['Kachelname'].values)
     else:
-        img_names = list(metadata['Kachelname'].values[:number_of_imgs])
-        metadata = metadata[metadata['Kachelname'].isin(img_names)]
+        tile_names = list(metadata['Kachelname'].values[:number_of_tiles])
+        metadata = metadata[metadata['Kachelname'].isin(tile_names)]
 
-    return metadata, img_names
+    return metadata, tile_names
 
-def read_convert_save_images(img_names, base_url, save_folder, rewrite=False) -> None:
+def read_convert_save_images(tile_names, base_url, save_folder, rewrite=False) -> None:
     """Reads, converts and saves tile images as tiff
 
     Args:
-        img_names (list): list of image names
+        tile_names (list): list of tile names
         base_url (str): base url of images
         save_folder (str): path to folder where images will be saved
         rewrite (bool, optional): if True, images will be downloaded again, even if they already exist. Defaults to False.
@@ -86,7 +86,7 @@ def read_convert_save_images(img_names, base_url, save_folder, rewrite=False) ->
     Returns:
         None
     """
-    for img in img_names:
+    for img in tile_names:
         img_url = f"{base_url}{img}.jp2"
         save_path = f"{save_folder}{img}.tiff"
 
@@ -107,18 +107,18 @@ def read_convert_save_images(img_names, base_url, save_folder, rewrite=False) ->
         else:
             print(f"File {save_path} already exists. Skipping download.")
 
-def get_coords(img_name, metadata) -> tuple:
+def get_coords(tile_name, metadata) -> tuple:
     """Get coordinates of tile image
 
     Args:
-        img_name (str): name of tile image
+        tile_name (str): name of tile image
         metadata (pd.DataFrame): metadata as pandas dataframe
 
     Returns:
         tuple: coordinates of tile image
     """
-    lat = metadata.loc[metadata['Kachelname'] == img_name, 'Koordinatenursprung_East'].values[0]
-    long = metadata.loc[metadata['Kachelname'] == img_name, 'Koordinatenursprung_North'].values[0]
+    lat = metadata.loc[metadata['Kachelname'] == tile_name, 'Koordinatenursprung_East'].values[0]
+    long = metadata.loc[metadata['Kachelname'] == tile_name, 'Koordinatenursprung_North'].values[0]
 
     return (lat, long)
 
@@ -243,11 +243,11 @@ def extract_string(input_string) -> str:
     else:
         return None
 
-def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_folder, rewrite=False):
+def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_folder, rewrite=False):
     """Extract and save images of individual buildings from image tiles
 
         Args:
-            img_names (list[str]): list of image names
+            tile_names (list[str]): list of image names
             gdf (gpd.GeoDataFrame): geodataframe containing building shapes
             src_images_folder (str): path to source image folder
             dst_images_folder (str): path to destination image folder
@@ -261,7 +261,7 @@ def extract_individual_buildings(img_names, gdf, src_images_folder, dst_images_f
     # create empty list to store existing files that were not rewritten
     existing_files = []
 
-    for img in img_names:
+    for img in tile_names:
         image_path = src_images_folder + img + ".tiff"
 
         # open image
@@ -326,21 +326,21 @@ if __name__ == "__main__":
                     rewrite_download=False)
 
     # read metadata
-    metadata, img_names = read_metadata(raw_images_folder, metadata_filename, number_of_imgs)
+    metadata, tile_names = read_metadata(raw_images_folder, metadata_filename, number_of_tiles)
 
-    print(f"Metadata for {len(img_names)} tiles imported.")
+    print(f"Metadata for {len(tile_names)} tiles imported.")
 
     # read image tiles from API, convert and save them as .tiff
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
-    read_convert_save_images(img_names, base_url, raw_images_folder, rewrite=False)
+    read_convert_save_images(tile_names, base_url, raw_images_folder, rewrite=False)
 
     # get geodataframe containing the shapes of all buildings in the selected tiles
     gdf = gpd.GeoDataFrame()
 
-    for img_name in img_names:
-        coords = get_coords(img_name, metadata)
+    for tile_name in tile_names:
+        coords = get_coords(tile_name, metadata)
         gdf_temp = get_building_data(coords)
-        gdf_temp["kachelname"] = img_name
+        gdf_temp["kachelname"] = tile_name
 
         # add gdf_temp to gdf
         gdf = read_concat_gdf(gdf, gdf_temp)
@@ -348,4 +348,4 @@ if __name__ == "__main__":
     print(f"Found {len(gdf)} buildings to be processed.\n")
 
     # create single image for each building
-    extract_individual_buildings(img_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
+    extract_individual_buildings(tile_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
