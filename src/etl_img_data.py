@@ -97,7 +97,7 @@ def get_coords(img_name, metadata) -> tuple:
 
     return (lat, long)
 
-def get_geodataframe(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
+def get_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
     """Get geopandas dataframe containing building shapes and information from API
 
     Args:
@@ -319,7 +319,7 @@ gdf = gpd.GeoDataFrame()
 
 for img_name in img_names:
     coords = get_coords(img_name, metadata)
-    gdf_temp = get_geodataframe(coords)
+    gdf_temp = get_building_data(coords)
     gdf_temp["kachelname"] = img_name
 
     # add gdf_temp to gdf
