@@ -1,5 +1,7 @@
 data/raw/images/*.tiff
 data/processed/images/*.tiff
+data/raw/pcs/*.laz
+data/processed/pcs/*.las
 dev-commands.txt
 
 # Byte-compiled / optimized / DLL files
