@@ -1,8 +1,11 @@
+#%%
 #######################
 ### GOBAL VARIABLES ###
 
-number_of_tiles = 2 # number of 1kx1k image tiles to download. Use "all" to download all available images
-raw_images_folder = "data/raw/images/"
+tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
+building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
+name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
+raw_data_folder = "data/raw/images/"
 processed_images_folder = "data/processed/images/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
@@ -10,71 +13,20 @@ rewrite_processing=True # if True, images of individual buildings will be create
 ###############
 ### IMPORTS ###
 
+from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
+
 import os
-import urllib.request
-from io import BytesIO
-from zipfile import ZipFile
 import pandas as pd
 import geopandas as gpd
 import rasterio
-import xml.etree.ElementTree as ET
-import geopandas as gpd
-import shapely
 from rasterio.mask import mask
-import re
-from typing import Tuple
+import shapely
+
 
 ############################
 ### FUNCTION DEFINITIONS ###
 
-def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows, rewrite_download=False) -> None:
-    """Downloads metadata from url and saves it as csv file
-
-        Args:
-            raw_data_folder (str): path to folder where metadata will be saved
-            metadata_filename (str): name of metadata file
-            url_metadata (str): url of metadata file
-            skiprows (int): number of rows to skip when reading metadata file
-            rewrite_download (bool, optional): if True, metadata will be downloaded again, even if it already exists. Defaults to False.
-
-        Returns:
-            None
-    """
-    if metadata_filename not in os.listdir(raw_data_folder) or rewrite_download:
-        print("File not found. Downloading...")
-
-        response = urllib.request.urlopen(url_metadata)
-        zipfile = ZipFile(BytesIO(response.read()))
-
-        metadata = pd.read_csv(zipfile.open(metadata_filename),
-                            sep=';',
-                            skiprows=skiprows) # skip first X rows with irrelevant metadata
-
-        metadata.to_csv(raw_data_folder + metadata_filename, index=False)
-
-def read_metadata(raw_images_folder, metadata_filename, number_of_tiles) -> Tuple[pd.DataFrame, list]:
-    """Reads metadata from csv file
-
-    Args:
-        raw_images_folder (str): path to folder containing metadata
-        metadata_filename (str): filename of metadata file
-        number_of_tiles (int): number of tiles to download. Use "all" to download all available tiles
-
-    Returns:
-        tuple[pd.DataFrame, list]: metadata as pandas dataframe and list of tile names
-    """
-    metadata = pd.read_csv(raw_images_folder + metadata_filename)
-
-    # select metadata for subset of images
-    if number_of_tiles == "all":
-        tile_names = list(metadata['Kachelname'].values)
-    else:
-        tile_names = list(metadata['Kachelname'].values[:number_of_tiles])
-        metadata = metadata[metadata['Kachelname'].isin(tile_names)]
-
-    return metadata, tile_names
-
-def read_convert_save_images(tile_names, base_url, save_folder, rewrite=False) -> None:
+def read_convert_save_tiles(tile_names, base_url, save_folder, rewrite=False) -> None:
     """Reads, converts and saves tile images as tiff
 
     Args:
@@ -86,9 +38,9 @@ def read_convert_save_images(tile_names, base_url, save_folder, rewrite=False) -
     Returns:
         None
     """
-    for img in tile_names:
-        img_url = f"{base_url}{img}.jp2"
-        save_path = f"{save_folder}{img}.tiff"
+    for tile_name in tile_names:
+        img_url = f"{base_url}{tile_name}.jp2"
+        save_path = f"{save_folder}{tile_name}.tiff"
 
         # read image
         if not os.path.exists(save_path) or rewrite:
@@ -107,102 +59,6 @@ def read_convert_save_images(tile_names, base_url, save_folder, rewrite=False) -
         else:
             print(f"File {save_path} already exists. Skipping download.")
 
-def get_coords(tile_name, metadata) -> tuple:
-    """Get coordinates of tile image
-
-    Args:
-        tile_name (str): name of tile image
-        metadata (pd.DataFrame): metadata as pandas dataframe
-
-    Returns:
-        tuple: coordinates of tile image
-    """
-    lat = metadata.loc[metadata['Kachelname'] == tile_name, 'Koordinatenursprung_East'].values[0]
-    long = metadata.loc[metadata['Kachelname'] == tile_name, 'Koordinatenursprung_North'].values[0]
-
-    return (lat, long)
-
-def get_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
-    """Get geopandas dataframe containing building shapes and information from API
-
-    Args:
-        coords (tuple): coordinates of tile image
-        crs (str, optional): coordinate reference system. Defaults to 'EPSG:25832'.
-
-    Returns:
-        gpd.GeoDataFrame: geopandas dataframe containing building shapes and information
-    """
-    base_url = "https://www.wfs.nrw.de/geobasis/wfs_nw_alkis_vereinfacht?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature&TYPENAMES=ave:GebaeudeBauwerk&BBOX="
-
-    x, y = coords
-
-    # get second lat/lon value for bounding box (always 10000*10000)
-    x2 = x + 1000
-    y2 = y + 1000
-
-    bbox4 = (x, y, x2, y2)
-
-    # create bounding box string for API query
-    bbox_str = ','.join(list(map(str, bbox4)))
-    gml_url = ''.join([base_url, bbox_str])
-
-    # query webservice
-    req = urllib.request.Request(gml_url)
-    req.get_method = lambda: 'GET'
-    response = urllib.request.urlopen(req)
-
-    gml_str = response.read()
-
-    # response is formatted as GML, which can be queried like normal XML, by referencing the relevant namespaces
-    root = ET.ElementTree(ET.fromstring(gml_str)).getroot()
-
-    namespace = {'gml': "http://www.opengis.net/gml/3.2",
-             'xmlns': "http://repository.gdi-de.org/schemas/adv/produkt/alkis-vereinfacht/2.0",
-             'wfs': "http://www.opengis.net/wfs/2.0",
-             'xsi': "http://www.w3.org/2001/XMLSchema-instance"
-             }
-
-    buildings = [i.text for i in root.findall('.//gml:posList', namespace)]
-
-    funktions = [i.text for i in root.iter('{http://repository.gdi-de.org/schemas/adv/produkt/alkis-vereinfacht/2.0}funktion')]
-
-    ids = [i.items()[0][1] for i in root.findall('.//gml:MultiSurface[@gml:id]', namespace)]
-
-    building_shapefiles = []
-
-    for id, funktion, build in zip(ids, funktions, buildings):
-        # coordinates are not in the correct format, therefore need to be rearranged
-        coord_iter = iter(build.split(' '))
-        coords = list(map(tuple, zip(coord_iter, coord_iter)))
-
-        # create shapefile from points
-        poly = shapely.geometry.Polygon([[float(p[0]), float(p[1])] for p in coords])
-
-        # create records of each building on the selected tile
-        building_shapefiles.append({'id': id, 'funktion':funktion, 'geometry': poly})
-
-    df = pd.DataFrame.from_records(building_shapefiles)
-
-    # return geopandas dataframe for input that can be passed to the mask generation
-    gdf = gpd.GeoDataFrame(df, crs=crs)
-
-    return gdf
-
-def read_concat_gdf(gdf1, gdf2) -> gpd.GeoDataFrame:
-    """Read and concatenate two geodataframes
-
-    Args:
-        gdf1 (gpd.GeoDataFrame): first geodataframe
-        gdf2 (gpd.GeoDataFrame): second geodataframe
-
-    Returns:
-        gpd.GeoDataFrame: concatenated geodataframe
-    """
-    gdf_temp = pd.concat([gdf1, gdf2])
-    gdf_temp.drop_duplicates(keep="first", inplace=True)
-    gdf_temp.reset_index(drop=True, inplace=True)
-
-    return gdf_temp
 
 def create_mask_from_shape(img, shape, crop=True, pad=False):
     """Create mask of a building from shapefile
@@ -226,24 +82,8 @@ def create_mask_from_shape(img, shape, crop=True, pad=False):
 
     return out_image, out_meta
 
-def extract_string(input_string) -> str:
-    """Extract building id from string
 
-    Args:
-        input_string (str): input string containing building id in the format "gebbau.id.334050178.geometrie.Geom_0"
-
-    Returns:
-        str: the building id
-    """
-    pattern = re.compile(r'\w+\.id\.(\d+)\.\w+\.(\w+)_(\d+)')
-    match = pattern.search(input_string)
-    if match:
-        #return match.group(1) + '_' + match.group(2)
-        return match.group(1) + '_' + match.group(3)
-    else:
-        return None
-
-def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_folder, rewrite=False):
+def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_folder, rewrite=False, name_id_only=True):
     """Extract and save images of individual buildings from image tiles
 
         Args:
@@ -261,20 +101,26 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
     # create empty list to store existing files that were not rewritten
     existing_files = []
 
-    for img in tile_names:
-        image_path = src_images_folder + img + ".tiff"
+    for tile_name in tile_names:
+        image_path = src_images_folder + tile_name + ".tiff"
 
         # open image
         with rasterio.open(image_path, "r") as src:
             assert src.crs == gdf.crs # check if crs of image and gdf are the same
             bbox = shapely.geometry.box(*src.bounds)
             # subset gdf to buildings on the current tile
-            gdf_temp = gdf[gdf["kachelname"] == img]
+            gdf_temp = gdf[gdf["kachelname"] == tile_name]
 
             for index, row in gdf_temp.iterrows():
 
-                building_id = extract_string(row["id"])
-                filename = dst_images_folder + building_id + ".tiff"
+                building_id = extract_building_id(row["id"])
+
+                if name_id_only:
+                    filename = f"{dst_images_folder}{building_id}.tiff"
+                else:
+                    # lowercase, remove spaces and special characters from building function
+                    building_function = row["funktion"].lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+                    filename = f"{dst_images_folder}{building_function}_{building_id}.tiff"
 
                 # check if file does not exists or if it should be rewritten
                 if not os.path.exists(filename) or rewrite:
@@ -307,10 +153,11 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
         # add unprocessed buildings and save to file
         buildings_out_of_bounds = read_concat_gdf(gdf_temp, unprocessed_buildings)
         buildings_out_of_bounds.to_file(gdf_file, driver="GPKG")
-        print(f"Skipped processing {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings whose shapes did not fully lie within the bounds of the image. Added those to {gdf_file}.\n")
+        print(f"Skipped processing {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings whose shapes did not fully lie within the bounds of the tile image. Added those to {gdf_file}.\n")
     else:
         print("All buildings were processed successfully.\n")
 
+#%%
 ################
 ### RUN CODE ###
 
@@ -319,33 +166,31 @@ if __name__ == "__main__":
     # Download metadata if not already in data/raw/images
     metadata_filename = "dop_nw.csv"
 
-    download_metadata(raw_images_folder,
+    download_metadata(raw_data_folder,
                     metadata_filename,
                     url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
                     skiprows=5,
-                    rewrite_download=False)
+                    rewrite_download=rewrite_download)
 
-    # read metadata
-    metadata, tile_names = read_metadata(raw_images_folder, metadata_filename, number_of_tiles)
-
+    # read and filter metadata
+    metadata = pd.read_csv(raw_data_folder + metadata_filename)
+    metadata = metadata[metadata['Kachelname'].isin(tile_names)]
     print(f"Metadata for {len(tile_names)} tiles imported.")
 
     # read image tiles from API, convert and save them as .tiff
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
-    read_convert_save_images(tile_names, base_url, raw_images_folder, rewrite=False)
+    read_convert_save_tiles(tile_names, base_url, raw_data_folder, rewrite=rewrite_download)
 
     # get geodataframe containing the shapes of all buildings in the selected tiles
     gdf = gpd.GeoDataFrame()
 
     for tile_name in tile_names:
-        coords = get_coords(tile_name, metadata)
-        gdf_temp = get_building_data(coords)
-        gdf_temp["kachelname"] = tile_name
 
-        # add gdf_temp to gdf
+        # download footprint and information of buildings
+        gdf_temp = prepare_building_data(tile_name, building_types)
         gdf = read_concat_gdf(gdf, gdf_temp)
 
     print(f"Found {len(gdf)} buildings to be processed.\n")
 
     # create single image for each building
-    extract_individual_buildings(tile_names, gdf, raw_images_folder, processed_images_folder, rewrite=rewrite_processing)
+    extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_images_folder, rewrite=rewrite_processing, name_id_only=name_id_only)

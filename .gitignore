@@ -1,5 +1,6 @@
 data/raw/images/*.tiff
 data/processed/images/*.tiff
+data/processed/images/building types
 data/raw/pcs/*.laz
 data/processed/pcs/*.las
 dev-commands.txt

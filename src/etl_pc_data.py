@@ -5,7 +5,8 @@
 #######################
 ### GOBAL VARIABLES ###
 
-number_of_tiles = 2 # number of 1kx1k image tiles to download. Use "all" to download all available images
+tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
+building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
@@ -14,38 +15,21 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 ###############
 ### IMPORTS ###
 
-from etl_img_data import download_metadata, read_metadata, get_building_data, read_concat_gdf, extract_building_id
-import re
+from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
+
+import pandas as pd
 import geopandas as gpd
 import os
 import urllib.request
 import pdal
 import json
-
 import urllib.request
 
 ############################
 ### FUNCTION DEFINITIONS ###
 
-def extract_coords(string):
-    """Extract coordinates from string"""
-    match = re.search(r'\d+_(\d+)_(\d+)', string)
-    return (int(match.group(1)), int(match.group(2)))
-
-def download_pointclouds(tile_names, base_url, save_folder, rewrite=False):
-    """Download pointclouds from tile names"""
-    for tile_name in tile_names:
-        pc_url = f"{base_url}{tile_name}.laz"
-        save_path = f"{save_folder}{tile_name}.laz"
-
-        if not os.path.exists(save_path) or rewrite:
-                urllib.request.urlretrieve(pc_url, save_path)
-                print(f"Downloaded {save_path}.")
-        else:
-            print(f"File {save_path} already exists. Skipping download.")
-
-def create_pc_pipeline(polygon, tile_file, save_path):
-
+def create_pdal_pipeline(polygon, tile_file, save_path):
+    """Create pipeline for pdal to crop pointclouds based on polygon"""
     pipeline = {
         "pipeline": [
             {
@@ -83,8 +67,9 @@ if __name__ == "__main__":
                     skiprows = 6,
                     rewrite_download=rewrite_download)
 
-    tile_names = ["3dm_32_375_5666_1_nw"] # TEMPORARY
-    #metadata, tile_names = read_metadata(raw_data_folder, metadata_filename, number_of_tiles)
+    # read and filter metadata
+    metadata = pd.read_csv(raw_data_folder + metadata_filename)
+    metadata = metadata[metadata['Kachelname'].isin(tile_names)]
     print(f"Metadata for {len(tile_names)} tiles imported.")
 
     # 2. Download pointclouds, footprints and building information
@@ -98,27 +83,17 @@ if __name__ == "__main__":
         pc_url = f"{base_url}{tile_name}.laz"
         tile_file = f"{raw_data_folder}{tile_name}.laz"
 
-        # 2. Download pointclouds
+        # download pointcloud
         if not os.path.exists(tile_file) or rewrite_download:
             urllib.request.urlretrieve(pc_url, tile_file)
             print(f"Downloaded {tile_file}")
         else:
             print(f"File {tile_file} already exists. Skipping download.")
 
-        # 3. Download footprint and information of buildings
-        gdf_temp = get_building_data((375000,5666000), crs='EPSG:25832') # TEMPORARY
-        gdf_temp["kachelname"] = tile_name # TEMPORARY
-        gdf = read_concat_gdf(gdf, gdf_temp) # TEMPORARY
+        # download footprint and information of buildings
+        gdf_temp = prepare_building_data(tile_name, building_types)
+        gdf = read_concat_gdf(gdf, gdf_temp)
 
-        # try:
-        #     coords = extract_coords(tile_name)
-        #     # multiply by 1000 to get coordinates in meters
-        #     coords = (coords[0] * 1000, coords[1] * 1000)
-        #     gdf_temp = get_building_data(coords, crs='EPSG:25832')
-        #     gdf_temp["kachelname"] = tile_name
-        #     gdf = read_concat_gdf(gdf, gdf_temp)
-        # except ValueError:
-        #     print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
     print(f"Found {len(gdf)} buildings to be processed.\n")
 
     # 3. Extract pointcloud of individual buildings
@@ -132,7 +107,7 @@ if __name__ == "__main__":
 
             # extract pointcloud for single building
             tile_file = f"{raw_data_folder}{row.kachelname}.laz"
-            pipeline_str = create_pc_pipeline(row.geometry.wkt, tile_file, save_path)
+            pipeline_str = create_pdal_pipeline(row.geometry.wkt, tile_file, save_path)
             json_str = json.dumps(pipeline_str)
             pipeline = pdal.Pipeline(json_str)
             pipeline.execute()
