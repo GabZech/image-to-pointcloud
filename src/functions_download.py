@@ -57,14 +57,10 @@ def read_concat_gdf(gdf1, gdf2) -> gpd.GeoDataFrame:
 
     return gdf_temp
 
-def prepare_building_data(tile_name, building_types):
+def prepare_building_data(tile_name, coords):
     """Prepares building data from given tile name"""
     try:
-        coords = extract_coords_tilename(tile_name)
-        # multiply by 1000 to get coordinates in meters
-        coords = (coords[0] * 1000, coords[1] * 1000)
         gdf_temp = download_building_data(coords, crs='EPSG:25832')
-        gdf_temp = gdf_temp[gdf_temp['funktion'].isin(building_types)]
         gdf_temp["kachelname"] = tile_name
 
         return gdf_temp

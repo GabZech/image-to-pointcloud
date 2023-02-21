@@ -13,8 +13,8 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 ###############
 ### IMPORTS ###
 
-from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
-from functions_filter import filter_buildings
+from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf, extract_coords_tilename
+from functions_filter import filter_buildings, remove_buildings_outside_tile
 
 import pandas as pd
 import geopandas as gpd
@@ -90,10 +90,13 @@ if __name__ == "__main__":
             print(f"File {tile_file} already exists. Skipping download.")
 
         # download footprint and information of buildings
-        gdf_temp = prepare_building_data(tile_name, building_types)
+        coords = extract_coords_tilename(tile_name)
+        coords = (coords[0] * 1000, coords[1] * 1000) # multiply by 1000 to get coordinates in meters
+        gdf_temp = prepare_building_data(tile_name, coords)
+        gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
         gdf = read_concat_gdf(gdf, gdf_temp)
 
-    # filter out buildings
+    # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
     print(f"Found {len(gdf)} buildings to be processed.\n")

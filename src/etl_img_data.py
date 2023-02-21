@@ -15,8 +15,8 @@ name_id_only = True # if True, only the building id will be used when saving the
 ###############
 ### IMPORTS ###
 
-from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
-from functions_filter import filter_buildings
+from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf, extract_coords_tilename
+from functions_filter import filter_buildings, remove_buildings_outside_tile
 
 import os
 import pandas as pd
@@ -108,8 +108,6 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
         # open image
         with rasterio.open(image_path, "r") as src:
             assert src.crs == gdf.crs # check if crs of image and gdf are the same
-            bbox = shapely.geometry.box(*src.bounds)
-            print(bbox)
             # subset gdf to buildings on the current tile
             gdf_temp = gdf[gdf["kachelname"] == tile_name]
 
@@ -165,13 +163,18 @@ if __name__ == "__main__":
     for tile_name in tile_names:
 
         # download footprint and information of buildings
-        gdf_temp = prepare_building_data(tile_name)
+        coords = extract_coords_tilename(tile_name)
+        coords = (coords[0] * 1000, coords[1] * 1000) # multiply by 1000 to get coordinates in meters
+        gdf_temp = prepare_building_data(tile_name, coords)
+        gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
         gdf = read_concat_gdf(gdf, gdf_temp)
 
-    # filter out buildings
+    # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
     print(f"Found {len(gdf)} buildings to be processed.\n")
 
     # create single image for each building
     extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_images_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+
+# %%
