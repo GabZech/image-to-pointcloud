@@ -99,8 +99,6 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
         Returns:
             None
     """
-    # create empty dataframe to store buildings that could not be processed
-    unprocessed_buildings = gpd.GeoDataFrame(columns=gdf.columns)
     # create empty list to store existing files that were not rewritten
     existing_files = []
 
@@ -111,6 +109,7 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
         with rasterio.open(image_path, "r") as src:
             assert src.crs == gdf.crs # check if crs of image and gdf are the same
             bbox = shapely.geometry.box(*src.bounds)
+            print(bbox)
             # subset gdf to buildings on the current tile
             gdf_temp = gdf[gdf["kachelname"] == tile_name]
 
@@ -125,40 +124,16 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
                     building_function = row["funktion"].lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
                     filename = f"{dst_images_folder}{building_function}_{building_id}.tiff"
 
-                # check if file does not exists or if it should be rewritten
                 if not os.path.exists(filename) or rewrite:
-
-                    # check if bounds of building are fully within bounds of image
-                    if not bbox.contains(row["geometry"]):
-                        # add building to unprocessed_buildings
-                        row_df = gpd.GeoDataFrame(row).transpose().set_crs(gdf.crs)
-                        unprocessed_buildings = pd.concat([unprocessed_buildings, row_df], ignore_index=True)
-                        continue
-                    else:
-                        # create mask for building
-                        out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
-                        with rasterio.open(filename, "w", **out_meta) as dest:
-                            dest.write(out_image)
+                    # create mask for building
+                    out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
+                    with rasterio.open(filename, "w", **out_meta) as dest:
+                        dest.write(out_image)
                 else:
                     existing_files.append(building_id)
 
     if len(existing_files) > 0:
         print(f"Skipped creating {len(existing_files)} already-existing files. Set rewrite=True to overwrite those files.\n")
-
-    if unprocessed_buildings.shape[0] > 0:
-        gdf_file = dst_images_folder + "buildings_out_of_bounds.gpkg"
-
-        # add unprocessed buildings and save to file
-        if rewrite_processing == False:
-            # check if file for saving buildings out of bounds already exists
-            if not os.path.exists(gdf_file):
-                gdf_temp = gpd.GeoDataFrame(columns=gdf.columns).set_crs(gdf.crs)
-            else:
-                gdf_temp = gpd.read_file(gdf_file)
-            unprocessed_buildings = read_concat_gdf(gdf_temp, unprocessed_buildings)
-
-        unprocessed_buildings.to_file(gdf_file, driver="GPKG")
-        print(f"Skipped processing {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings whose shapes did not fully lie within the bounds of the tile image. Added those to {gdf_file}.\n")
 
 #%%
 ################
@@ -190,7 +165,7 @@ if __name__ == "__main__":
     for tile_name in tile_names:
 
         # download footprint and information of buildings
-        gdf_temp = prepare_building_data(tile_name, building_types)
+        gdf_temp = prepare_building_data(tile_name)
         gdf = read_concat_gdf(gdf, gdf_temp)
 
     # filter out buildings
