@@ -1,12 +1,10 @@
-# https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/hoehenmodelle/3d-messdaten/index.html
-# https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/
-
 #%%
 #######################
 ### GOBAL VARIABLES ###
 
 tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
 building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
+min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
@@ -16,6 +14,7 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 ### IMPORTS ###
 
 from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
+from functions_filter import filter_buildings
 
 import pandas as pd
 import geopandas as gpd
@@ -93,6 +92,9 @@ if __name__ == "__main__":
         # download footprint and information of buildings
         gdf_temp = prepare_building_data(tile_name, building_types)
         gdf = read_concat_gdf(gdf, gdf_temp)
+
+    # filter out buildings
+    gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
     print(f"Found {len(gdf)} buildings to be processed.\n")
 

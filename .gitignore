@@ -4,6 +4,7 @@ data/processed/images/building types
 data/raw/pcs/*.laz
 data/processed/pcs/*.las
 dev-commands.txt
+data/processed/images/buildings_out_of_bounds.gpkg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -4,16 +4,19 @@
 
 tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
 building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
-name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
+min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/images/"
 processed_images_folder = "data/processed/images/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
+name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
+
 ###############
 ### IMPORTS ###
 
 from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf
+from functions_filter import filter_buildings
 
 import os
 import pandas as pd
@@ -144,18 +147,18 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
 
     if unprocessed_buildings.shape[0] > 0:
         gdf_file = dst_images_folder + "buildings_out_of_bounds.gpkg"
-        # check if file for saving buildings out of bounds already exists
-        if not os.path.exists(gdf_file):
-            gdf_temp = gpd.GeoDataFrame(columns=gdf.columns).set_crs(gdf.crs)
-        else:
-            gdf_temp = gpd.read_file(gdf_file)
 
         # add unprocessed buildings and save to file
-        buildings_out_of_bounds = read_concat_gdf(gdf_temp, unprocessed_buildings)
-        buildings_out_of_bounds.to_file(gdf_file, driver="GPKG")
+        if rewrite_processing == False:
+            # check if file for saving buildings out of bounds already exists
+            if not os.path.exists(gdf_file):
+                gdf_temp = gpd.GeoDataFrame(columns=gdf.columns).set_crs(gdf.crs)
+            else:
+                gdf_temp = gpd.read_file(gdf_file)
+            unprocessed_buildings = read_concat_gdf(gdf_temp, unprocessed_buildings)
+
+        unprocessed_buildings.to_file(gdf_file, driver="GPKG")
         print(f"Skipped processing {unprocessed_buildings.shape[0]} out of {gdf.shape[0]} buildings whose shapes did not fully lie within the bounds of the tile image. Added those to {gdf_file}.\n")
-    else:
-        print("All buildings were processed successfully.\n")
 
 #%%
 ################
@@ -189,6 +192,9 @@ if __name__ == "__main__":
         # download footprint and information of buildings
         gdf_temp = prepare_building_data(tile_name, building_types)
         gdf = read_concat_gdf(gdf, gdf_temp)
+
+    # filter out buildings
+    gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
     print(f"Found {len(gdf)} buildings to be processed.\n")
 
