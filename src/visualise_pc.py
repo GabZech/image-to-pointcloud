@@ -1,8 +1,11 @@
+las_file = "50521222.las" # file to visualise
+folder_files = "data/processed/pcs/"
+
 import laspy
 import open3d as o3d
 import numpy as np
 
-las = laspy.read("file-cropped.las")
+las = laspy.read(f"{folder_files}{las_file}")
 
 point_data = np.stack([las.X, las.Y, las.Z], axis=0).transpose((1, 0))
 
