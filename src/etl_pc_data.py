@@ -13,7 +13,8 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 ###############
 ### IMPORTS ###
 
-from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf, extract_coords_tilename
+from functions_download import download_metadata, prepare_building_data
+from functions_process import read_metadata, extract_building_id, read_concat_gdf, extract_coords_tilename
 from functions_filter import filter_buildings, remove_buildings_outside_tile
 
 import pandas as pd
@@ -50,14 +51,12 @@ def create_pdal_pipeline(polygon, tile_file, save_path):
     return pipeline
 
 #%%
-
 ################
 ### RUN CODE ###
 
-
 if __name__ == "__main__":
 
-    # 1. Download metadata
+    # 1. Download and read metadata
     metadata_filename = "3dm_nw.csv"
 
     download_metadata(raw_data_folder,
@@ -66,16 +65,15 @@ if __name__ == "__main__":
                     skiprows = 6,
                     rewrite_download=rewrite_download)
 
-    # read and filter metadata
-    metadata = pd.read_csv(raw_data_folder + metadata_filename)
-    metadata = metadata[metadata['Kachelname'].isin(tile_names)]
-    print(f"Metadata for {len(tile_names)} tiles imported.")
+    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename)
 
-    # 2. Download pointclouds, footprints and building information
+    # 2. Download and read pointclouds, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
+
+    # get geodataframe containing info on all buildings in the selected tiles
     gdf = gpd.GeoDataFrame()
-    files_skipped = 0
-    files_processed = 0
+    skipped_download = 0
+    skipped_processing = 0
 
     for tile_name in tile_names:
 
@@ -87,7 +85,7 @@ if __name__ == "__main__":
             urllib.request.urlretrieve(pc_url, tile_file)
             print(f"Downloaded {tile_file}")
         else:
-            print(f"File {tile_file} already exists. Skipping download.")
+            skipped_download += 1
 
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
@@ -95,6 +93,9 @@ if __name__ == "__main__":
         gdf_temp = prepare_building_data(tile_name, coords)
         gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
         gdf = read_concat_gdf(gdf, gdf_temp)
+
+    if skipped_download > 0:
+        print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
 
     # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
@@ -117,10 +118,10 @@ if __name__ == "__main__":
             pipeline = pdal.Pipeline(json_str)
             pipeline.execute()
 
-            files_processed += 1
-
         else:
-            files_skipped += 1
+            skipped_processing += 1
 
-print(f"Processed and saved {files_processed} new files to {processed_data_folder}.\n\
-      Skipped creating {files_skipped} already-existing files. Set rewrite=True to overwrite those files.\n")
+if skipped_processing > 0:
+    print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
+
+print(f"\nDone. Files can be found in {processed_data_folder}.")

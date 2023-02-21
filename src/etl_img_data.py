@@ -6,7 +6,7 @@ tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_202
 building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/images/"
-processed_images_folder = "data/processed/images/"
+processed_data_folder = "data/processed/images/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
@@ -15,15 +15,14 @@ name_id_only = True # if True, only the building id will be used when saving the
 ###############
 ### IMPORTS ###
 
-from functions_download import download_metadata, prepare_building_data, extract_building_id, read_concat_gdf, extract_coords_tilename
+from functions_download import download_metadata, prepare_building_data
+from functions_process import read_metadata, extract_building_id, read_concat_gdf, extract_coords_tilename
 from functions_filter import filter_buildings, remove_buildings_outside_tile
 
 import os
-import pandas as pd
 import geopandas as gpd
 import rasterio
 from rasterio.mask import mask
-import shapely
 
 
 ############################
@@ -41,6 +40,8 @@ def read_convert_save_tiles(tile_names, base_url, save_folder, rewrite=False) ->
     Returns:
         None
     """
+    skipped_download = 0
+
     for tile_name in tile_names:
         img_url = f"{base_url}{tile_name}.jp2"
         save_path = f"{save_folder}{tile_name}.tiff"
@@ -60,7 +61,10 @@ def read_convert_save_tiles(tile_names, base_url, save_folder, rewrite=False) ->
                     dst.write(img_rgb)
                     print(f"Downloaded {save_path}")
         else:
-            print(f"File {save_path} already exists. Skipping download.")
+            skipped_download += 1
+
+    if skipped_download > 0:
+        print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
 
 
 def create_mask_from_shape(img, shape, crop=True, pad=False):
@@ -100,7 +104,7 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
             None
     """
     # create empty list to store existing files that were not rewritten
-    existing_files = []
+    skipped_processing = 0
 
     for tile_name in tile_names:
         image_path = src_images_folder + tile_name + ".tiff"
@@ -128,10 +132,11 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
                     with rasterio.open(filename, "w", **out_meta) as dest:
                         dest.write(out_image)
                 else:
-                    existing_files.append(building_id)
+                    skipped_processing += 1
 
-    if len(existing_files) > 0:
-        print(f"Skipped creating {len(existing_files)} already-existing files. Set rewrite=True to overwrite those files.\n")
+    if skipped_processing > 0:
+        print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
+
 
 #%%
 ################
@@ -139,7 +144,7 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
 
 if __name__ == "__main__":
 
-    # Download metadata if not already in data/raw/images
+    # 1. Download and read metadata
     metadata_filename = "dop_nw.csv"
 
     download_metadata(raw_data_folder,
@@ -149,15 +154,14 @@ if __name__ == "__main__":
                     rewrite_download=rewrite_download)
 
     # read and filter metadata
-    metadata = pd.read_csv(raw_data_folder + metadata_filename)
-    metadata = metadata[metadata['Kachelname'].isin(tile_names)]
-    print(f"Metadata for {len(tile_names)} tiles imported.")
+    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename)
 
-    # read image tiles from API, convert and save them as .tiff
+    # 2. Download and read images, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
+    # read image tiles from API, convert and save them as .tiff
     read_convert_save_tiles(tile_names, base_url, raw_data_folder, rewrite=rewrite_download)
 
-    # get geodataframe containing the shapes of all buildings in the selected tiles
+    # get geodataframe containing info on all buildings in the selected tiles
     gdf = gpd.GeoDataFrame()
 
     for tile_name in tile_names:
@@ -172,9 +176,9 @@ if __name__ == "__main__":
     # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
-    print(f"Found {len(gdf)} buildings to be processed.\n")
+    print(f"Found {len(gdf)} buildings to be processed.")
 
-    # create single image for each building
-    extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_images_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+    # 3. Extract images of individual buildings
+    extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
 
-# %%
+    print(f"\nDone. Files can be found in {processed_data_folder}.")

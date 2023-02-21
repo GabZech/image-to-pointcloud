@@ -3,7 +3,6 @@ from io import BytesIO
 from zipfile import ZipFile
 import pandas as pd
 import urllib.request
-import re
 import geopandas as gpd
 import xml.etree.ElementTree as ET
 import shapely
@@ -33,29 +32,8 @@ def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows
         print(f"Metadata saved as {raw_data_folder + metadata_filename}")
 
     else:
-        print(f"Metadata already exists in {raw_data_folder + metadata_filename}")
+        print(f"Metadata already exists in {raw_data_folder + metadata_filename}. Skipping download.")
 
-
-def extract_coords_tilename(string):
-    """Extract coordinates from tile name in format x_x_lat_long..."""
-    match = re.search(r'\d+_(\d+)_(\d+)', string)
-    return (int(match.group(1)), int(match.group(2)))
-
-def read_concat_gdf(gdf1, gdf2) -> gpd.GeoDataFrame:
-    """Read and concatenate two geodataframes
-
-    Args:
-        gdf1 (gpd.GeoDataFrame): first geodataframe
-        gdf2 (gpd.GeoDataFrame): second geodataframe
-
-    Returns:
-        gpd.GeoDataFrame: concatenated geodataframe
-    """
-    gdf_temp = pd.concat([gdf1, gdf2])
-    gdf_temp.drop_duplicates(keep="first", inplace=True)
-    gdf_temp.reset_index(drop=True, inplace=True)
-
-    return gdf_temp
 
 def prepare_building_data(tile_name, coords):
     """Prepares building data from given tile name"""
@@ -67,24 +45,6 @@ def prepare_building_data(tile_name, coords):
 
     except ValueError:
         print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
-
-
-def extract_building_id(input_string) -> str:
-    """Extract building id from string
-
-    Args:
-        input_string (str): input string containing building id in the format "gebbau.id.334050178.geometrie.Geom_0"
-
-    Returns:
-        str: the building id
-    """
-    pattern = re.compile(r'\w+\.id\.(\d+)\.\w+\.(\w+)_(\d+)')
-    match = pattern.search(input_string)
-    if match:
-        #return match.group(1) + '_' + match.group(2)
-        return match.group(1)
-    else:
-        return None
 
 
 def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
