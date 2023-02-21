@@ -1,11 +1,13 @@
 import os
+import urllib.request
+import xml.etree.ElementTree as ET
 from io import BytesIO
 from zipfile import ZipFile
-import pandas as pd
-import urllib.request
+
 import geopandas as gpd
-import xml.etree.ElementTree as ET
+import pandas as pd
 import shapely
+
 
 def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows, rewrite_download=False) -> None:
     """Downloads metadata from url and saves it as csv file

@@ -15,15 +15,15 @@ name_id_only = True # if True, only the building id will be used when saving the
 ###############
 ### IMPORTS ###
 
-from functions_download import download_metadata, prepare_building_data
-from functions_process import read_metadata, extract_building_id, read_concat_gdf, extract_coords_tilename
-from functions_filter import filter_buildings, remove_buildings_outside_tile
-
 import os
+
 import geopandas as gpd
 import rasterio
 from rasterio.mask import mask
 
+from functions_download import download_metadata, prepare_building_data
+from functions_filter import filter_buildings, remove_buildings_outside_tile
+from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
 
 ############################
 ### FUNCTION DEFINITIONS ###

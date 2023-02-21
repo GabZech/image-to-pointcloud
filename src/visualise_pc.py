@@ -2,8 +2,8 @@ las_file = "50521222.las" # file to visualise
 folder_files = "data/processed/pcs/"
 
 import laspy
-import open3d as o3d
 import numpy as np
+import open3d as o3d
 
 las = laspy.read(f"{folder_files}{las_file}")
 

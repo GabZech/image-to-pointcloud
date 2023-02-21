@@ -1,6 +1,7 @@
 import geopandas as gpd
 import shapely
 
+
 def filter_buildings(gdf: gpd.GeoDataFrame, type: list, min_area: int) -> gpd.GeoDataFrame:
     """Filters buildings by building type and minimum polygon area
 
