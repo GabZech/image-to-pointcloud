@@ -1,4 +1,5 @@
-las_file = "50521222.las" # file to visualise
+las_file = "50521070.las" # ok
+#las_file = "50521231.las" # noisy
 folder_files = "data/processed/pcs/"
 
 import laspy
@@ -11,4 +12,7 @@ point_data = np.stack([las.X, las.Y, las.Z], axis=0).transpose((1, 0))
 
 geom = o3d.geometry.PointCloud()
 geom.points = o3d.utility.Vector3dVector(point_data)
-o3d.visualization.draw_geometries([geom])
+o3d.visualization.draw_geometries([geom],
+                                  width=int(1920/2), height=int(1080/2),
+                                  left=10, top=10
+                                  )
