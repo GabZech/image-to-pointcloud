@@ -40,6 +40,10 @@ def create_pdal_pipeline(polygon, tile_file, save_path):
                 "polygon": polygon
             },
             {
+                "type":"filters.range",
+                "limits":"Classification[20:20]" # For classification information, https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/hoehenmodelle/nutzerinformationen.pdf
+            },
+            {
                 "type":"writers.las",
                 #"a_srs":"EPSG:25832+7837"
                 "filename": save_path
