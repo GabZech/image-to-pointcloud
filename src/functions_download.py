@@ -34,7 +34,7 @@ def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows
         print(f"Metadata saved as {raw_data_folder + metadata_filename}")
 
     else:
-        print(f"Metadata already exists in {raw_data_folder + metadata_filename}. Skipping download.")
+        print(f"Metadata already exists in {raw_data_folder + metadata_filename}. Set rewrite_download=True to overwrite it.")
 
 
 def prepare_building_data(tile_name, coords):
