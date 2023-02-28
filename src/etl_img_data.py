@@ -20,6 +20,7 @@ import os
 import geopandas as gpd
 import rasterio
 from rasterio.mask import mask
+import numpy as np
 
 from functions_download import download_metadata, prepare_building_data
 from functions_filter import filter_buildings, remove_buildings_outside_tile
@@ -105,6 +106,7 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
     """
     # create empty list to store existing files that were not rewritten
     skipped_processing = 0
+    above_224 = 0
 
     for tile_name in tile_names:
         image_path = src_images_folder + tile_name + ".tiff"
@@ -129,14 +131,43 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
                 if not os.path.exists(filename) or rewrite:
                     # create mask for building
                     out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
-                    with rasterio.open(filename, "w", **out_meta) as dest:
-                        dest.write(out_image)
+
+                    if out_image.shape[1] <= 224 and out_image.shape[2] <= 224: # filters out images that have a dimension smaller than 224 pixels
+                        # pad image to 224x224
+                        extra_left, extra_right, extra_top, extra_bottom = get_padding_dim(out_image)
+                        out_image = np.pad(out_image, ((0, 0), (extra_top, extra_bottom), (extra_left, extra_right)), mode='constant', constant_values=0)
+                        out_meta.update({"height": 224, "width": 224})
+                        with rasterio.open(filename, "w", **out_meta) as dest:
+                            dest.write(out_image)
+                    else:
+                        above_224 += 1
                 else:
                     skipped_processing += 1
 
     if skipped_processing > 0:
         print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
 
+    return above_224
+
+def get_padding_dim(img):
+
+    remaining_rows, remaining_cols = 224 - img.shape[1], 224 - img.shape[2]
+
+    if remaining_cols % 2 == 0 and remaining_cols != 1:
+        extra_left, extra_right = remaining_cols // 2, remaining_cols // 2
+    elif remaining_cols == 1:
+        extra_left, extra_right = 0 , 1
+    else:
+        extra_left, extra_right = remaining_cols // 2, remaining_cols // 2 + 1
+
+    if remaining_rows % 2 == 0 and remaining_rows != 1:
+        extra_top, extra_bottom = remaining_rows // 2, remaining_rows // 2
+    elif remaining_rows == 1:
+        extra_top, extra_bottom = 0, 1
+    else:
+        extra_top, extra_bottom = remaining_rows // 2, remaining_rows // 2 + 1
+
+    return extra_left, extra_right, extra_top, extra_bottom
 
 #%%
 ################
@@ -179,6 +210,7 @@ if __name__ == "__main__":
     print(f"Found {len(gdf)} buildings to be processed.")
 
     # 3. Extract images of individual buildings
-    extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+    above_224 = extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
 
     print(f"\nDone. Files can be found in {processed_data_folder}.")
+    print(f"\n{above_224} buildings were removed because they had one or more dimensions larger than 224 pixels.")
