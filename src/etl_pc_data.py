@@ -8,7 +8,7 @@ min_area = 100 # area (in square meters) of buildings that will be kept. Buildin
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
-rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
+rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
 ###############
 ### IMPORTS ###
@@ -19,6 +19,7 @@ import urllib.request
 
 import geopandas as gpd
 import pdal
+import numpy as np
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import filter_buildings, remove_buildings_outside_tile
@@ -43,11 +44,11 @@ def create_pdal_pipeline(polygon, tile_file, save_path):
                 "type":"filters.range",
                 "limits":"Classification[20:20]" # For classification information, https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/hoehenmodelle/nutzerinformationen.pdf
             },
-            {
-                "type":"writers.las",
-                #"a_srs":"EPSG:25832+7837"
-                "filename": save_path
-            }
+            # {
+            #     "type":"writers.las",
+            #     #"a_srs":"EPSG:25832+7837"
+            #     "filename": save_path
+            # }
         ]
     }
 
@@ -112,7 +113,7 @@ if __name__ == "__main__":
 
         # get building id and file save path
         building_id = extract_building_id(row.id)
-        save_path = f"{processed_data_folder}{building_id}.las"
+        save_path = f"{processed_data_folder}{building_id}.json"
 
         if not os.path.exists(save_path) or rewrite_processing:
 
@@ -122,6 +123,20 @@ if __name__ == "__main__":
             json_str = json.dumps(pipeline_str)
             pipeline = pdal.Pipeline(json_str)
             pipeline.execute()
+
+            # transform and save pointcloud as json file
+            array = pipeline.arrays[0]
+            x_array = (array['X']*100).reshape(-1,1).astype(np.int32)
+            y_array = (array['Y']*100).reshape(-1,1).astype(np.int32)
+            z_array = (array['Z']*100).reshape(-1,1).astype(np.int32)
+
+            new_array = np.concatenate((x_array, y_array, z_array), axis=1)
+
+            json_string = {"lidar": new_array.tolist()}
+
+            # write new_array to json file
+            with open(save_path, 'w') as outfile:
+                json.dump(json_string, outfile)
 
         else:
             skipped_processing += 1
