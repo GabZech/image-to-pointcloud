@@ -8,6 +8,18 @@ import geopandas as gpd
 import pandas as pd
 import shapely
 
+def create_dirs(dirs: list) -> None:
+    """Creates directories if they don't exist
+
+    Args:
+        dirs (list): list of directories to create
+
+    Returns:
+        None
+    """
+    for dir in dirs:
+        if not os.path.exists(dir):
+            os.makedirs(dir)
 
 def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows, rewrite_download=False) -> None:
     """Downloads metadata from url and saves it as csv file

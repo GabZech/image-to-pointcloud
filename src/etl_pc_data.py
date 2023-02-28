@@ -20,7 +20,7 @@ import urllib.request
 import geopandas as gpd
 import pdal
 
-from functions_download import download_metadata, prepare_building_data
+from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import filter_buildings, remove_buildings_outside_tile
 from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
 
@@ -58,6 +58,8 @@ def create_pdal_pipeline(polygon, tile_file, save_path):
 ### RUN CODE ###
 
 if __name__ == "__main__":
+
+    create_dirs([raw_data_folder, processed_data_folder])
 
     # 1. Download and read metadata
     metadata_filename = "3dm_nw.csv"
