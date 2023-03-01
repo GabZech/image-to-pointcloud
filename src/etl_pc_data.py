@@ -8,7 +8,7 @@ min_area = 100 # area (in square meters) of buildings that will be kept. Buildin
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
-rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
+rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
 
 ###############
 ### IMPORTS ###
@@ -17,18 +17,17 @@ import json
 import os
 import urllib.request
 
-import geopandas as gpd
 import pdal
 import numpy as np
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
-from functions_filter import filter_buildings, remove_buildings_outside_tile
+from functions_filter import remove_buildings_outside_tile
 from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
 
 ############################
 ### FUNCTION DEFINITIONS ###
 
-def create_pdal_pipeline(polygon, tile_file, save_path):
+def create_pdal_pipeline(polygon, tile_file):
     """Create pipeline for pdal to crop pointclouds based on polygon"""
     pipeline = {
         "pipeline": [
@@ -37,12 +36,12 @@ def create_pdal_pipeline(polygon, tile_file, save_path):
                 "filename": tile_file
             },
             {
-                "type": "filters.crop",
-                "polygon": polygon
-            },
-            {
                 "type":"filters.range",
                 "limits":"Classification[20:20]" # For classification information, https://www.bezreg-koeln.nrw.de/brk_internet/geobasis/hoehenmodelle/nutzerinformationen.pdf
+            },
+            {
+                "type": "filters.crop",
+                "polygon": polygon
             },
             # {
             #     "type":"writers.las",
@@ -77,9 +76,11 @@ if __name__ == "__main__":
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
 
     # get geodataframe containing info on all buildings in the selected tiles
-    gdf = gpd.GeoDataFrame()
     skipped_download = 0
     skipped_processing = 0
+
+    # get list of buildings for which there are images in processed/images
+    buildings = [f[:-5] for f in os.listdir("data/processed/images/") if f.endswith(".tiff")]
 
     for tile_name in tile_names:
 
@@ -98,48 +99,55 @@ if __name__ == "__main__":
         coords = (coords[0] * 1000, coords[1] * 1000) # multiply by 1000 to get coordinates in meters
         gdf_temp = prepare_building_data(tile_name, coords)
         gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
-        gdf = read_concat_gdf(gdf, gdf_temp)
 
-    if skipped_download > 0:
-        print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
+        # keep only buildings for which there are images in processed/images
+        gdf_temp["building_id"] = gdf_temp["id"].apply(extract_building_id)
+        gdf_temp = gdf_temp[gdf_temp["building_id"].isin(buildings)]
+        # gdf = read_concat_gdf(gdf, gdf_temp)
 
-    # filter out buildings that are not of interest
-    gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
+        # 3. Extract pointcloud of individual buildings
+        geometries = []
+        ids = []
 
-    print(f"Found {len(gdf)} buildings to be processed.\n")
+        for index, row in gdf_temp.iterrows():
 
-    # 3. Extract pointcloud of individual buildings
-    for index, row in gdf.iterrows():
-
-        # get building id and file save path
-        building_id = extract_building_id(row.id)
-        save_path = f"{processed_data_folder}{building_id}.json"
-
-        if not os.path.exists(save_path) or rewrite_processing:
-
-            # extract pointcloud for single building
+            building_id = extract_building_id(row.id)
             tile_file = f"{raw_data_folder}{row.kachelname}.laz"
-            pipeline_str = create_pdal_pipeline(row.geometry.wkt, tile_file, save_path)
-            json_str = json.dumps(pipeline_str)
-            pipeline = pdal.Pipeline(json_str)
-            pipeline.execute()
+            geometries.append(str(row.geometry))
+            ids.append(building_id)
 
-            # transform and save pointcloud as json file
-            array = pipeline.arrays[0]
+        pipeline_str = create_pdal_pipeline(geometries, tile_file)
+        json_str = json.dumps(pipeline_str)
+        pipeline = pdal.Pipeline(json_str)
+        pipeline.execute()
+
+        # transform and save pointcloud as json file
+        arrays = pipeline.arrays
+
+        for i, array in enumerate(arrays):
             x_array = (array['X']*100).reshape(-1,1).astype(np.int32)
             y_array = (array['Y']*100).reshape(-1,1).astype(np.int32)
             z_array = (array['Z']*100).reshape(-1,1).astype(np.int32)
 
             new_array = np.concatenate((x_array, y_array, z_array), axis=1)
 
-            json_string = {"lidar": new_array.tolist()}
+            json_string = {"building_id": ids[i],
+                           "lidar": new_array.tolist(),
+                           }
 
-            # write new_array to json file
-            with open(save_path, 'w') as outfile:
-                json.dump(json_string, outfile)
+            save_path = f"{processed_data_folder}{ids[i]}.json"
 
-        else:
-            skipped_processing += 1
+            if not os.path.exists(save_path) or rewrite_processing:
+                # write new_array to json file
+                with open(save_path, 'w') as outfile:
+                    json.dump(json_string, outfile)
+            else:
+                skipped_processing += 1
+
+        print(f"Finished processing {tile_name}.")
+
+if skipped_download > 0:
+    print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
 
 if skipped_processing > 0:
     print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")

@@ -1,9 +1,10 @@
 data/raw/images/*.tiff
-data/processed/images/*.tiff
-data/processed/images/building types
+data/processed/images/
+data/processed/pcs/
 data/raw/pcs/*.laz
 data/processed/pcs/*.las
 dev-commands.txt
+datasets/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
