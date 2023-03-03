@@ -44,3 +44,5 @@ o3d.visualization.draw_geometries([geom],
                                   width=int(1920/2), height=int(1080/2),
                                   left=10, top=10
                                   )
+
+# %%
