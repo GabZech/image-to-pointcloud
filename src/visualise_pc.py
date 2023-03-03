@@ -1,4 +1,8 @@
 #%%
+import os 
+os.chdir('/Users/nassimzoueini/Documents/GitHub/image-to-pointcloud/')
+
+#%%
 
 ### VISUALISE LAS FILE ###
 
