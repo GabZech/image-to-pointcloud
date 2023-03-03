@@ -15,6 +15,7 @@ dependencies:
   - python-pdal
   - gdal
   - ipykernel
+  - pip
 
   - pip:
       - pdal==3.2.2
