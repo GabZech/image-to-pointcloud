@@ -35,7 +35,7 @@ def display_inlier_outlier(cloud, ind):
     return inlier_cloud
 # cl, ind = pcd.remove_statistical_outlier(nb_neighbors=3,
 #                                                     std_ratio=0.02)
-cl, ind = pcd.remove_radius_outlier(nb_points=16, radius=0.05)
+cl, ind = pcd.remove_radius_outlier(nb_points=5, radius=100)
 
 pcld=display_inlier_outlier(pcd, ind)
 pcld_points=np.asarray(pointsList, dtype=np.float32)
