@@ -4,7 +4,7 @@ import pyvista as pv
 import json
 import open3d as o3d
 import matplotlib.pyplot as plt
-
+#Always work on 50526389
 pointsList=[]
 with open('data/processed/pcs/50526389.json') as f:
     for jsonObj in f:
@@ -39,17 +39,20 @@ pcd.points=o3d.utility.Vector3dVector(points)
 #      pcd=outlier_cloud
      
 segment_models={}
-segments={}
+pts=[]
+vector=[]
+inclination=[]
 max_plane_idx=6
 rest=pcd
 d_threshold=100
+segments={}
 for i in range(max_plane_idx):
     colors = plt.get_cmap("tab20")(i)
-    segment_models[i], inliers = rest.segment_plane(distance_threshold=10,ransac_n=3,num_iterations=1000)
+    segment_models[i], inliers = rest.segment_plane(distance_threshold=10,ransac_n=3,num_iterations=10000)
     [a, b, c, d] = segment_models[i]
     print("Displaying pointcloud with planar points in",i+1, "th segment",f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-    angle=np.arccos(c/(a*a+b*b+c*c))
-    print("Inclination=",angle*180/np.pi%90, "°")
+    angle=np.fix(np.arccos(c)*180/np.pi%90)
+    print("Inclination=",angle, "°")
     segments[i]=rest.select_by_index(inliers)
     labels = np.array(segments[i].cluster_dbscan(eps=d_threshold*10, min_points=20))
     candidates=[len(np.where(labels==j)[0]) for j in np.unique(labels)]
@@ -59,6 +62,14 @@ for i in range(max_plane_idx):
     segments[i]=segments[i].select_by_index(list(np.where(labels== best_candidate)[0]))
     print("pass",i,"/",max_plane_idx,"done.")
 
+    #pts[i]=np.asarray(inliers)
+    pts.append(np.asarray(inliers))
+    #vector[i]=np.asarray(segment_models[i])
+    vector.append(np.asarray(segment_models[i]))
+    #inclination[i]=angle
+    inclination.append(angle)
+
+segments=np.concatenate((pts,vector,inclination),axis=1)
 labels = np.array(rest.cluster_dbscan(eps=0.05, min_points=5))
 max_label = labels.max()
 print(f"point cloud has {max_label + 1} clusters")
@@ -66,3 +77,4 @@ colors = plt.get_cmap("tab10")(labels / (max_label if max_label > 0 else 1))
 colors[labels < 0] = 0
 rest.colors = o3d.utility.Vector3dVector(colors[:, :3])
 o3d.visualization.draw([segments[i] for i in range(max_plane_idx)])#+[rest])
+print(segments)
