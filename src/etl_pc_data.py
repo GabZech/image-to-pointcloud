@@ -7,7 +7,7 @@ building_types = ["Wohnhaus"] # select building types to keep. All other buildin
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
-rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
+rewrite_download=True # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
 ###############

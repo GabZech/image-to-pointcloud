@@ -3,53 +3,66 @@ import laspy as laspy
 import pyvista as pv
 import json
 import open3d as o3d
+import matplotlib.pyplot as plt
 
 pointsList=[]
-with open('data/processed/pcs/50520652.json') as f:
+with open('data/processed/pcs/50526389.json') as f:
     for jsonObj in f:
         pt_coord=json.loads(jsonObj)
         pointsList.append(pt_coord['lidar'])
 
 # print(pointsList)
 points=np.asarray(pointsList, dtype=np.float32)
-#print(points.shape)
 points=points[0,:,:]
-#print(points.shape)
-
-#pcd_data=points
 pcd = o3d.geometry.PointCloud()
 pcd.points=o3d.utility.Vector3dVector(points)
-#o3d.visualization.draw_geometries([pcd])
-                                #   zoom=0.3412,
-                                #   front=[0.4257, -0.2125, -0.8795],
-                                #   lookat=[2.6172, 2.0475, 1.532],
-                                #   up=[-0.0694, -0.9768, 0.2024])
-def display_inlier_outlier(cloud, ind):
-    inlier_cloud = cloud.select_by_index(ind)
-    outlier_cloud = cloud.select_by_index(ind, invert=True)
 
-    
-    outlier_cloud.paint_uniform_color([1, 0, 0])
-    inlier_cloud.paint_uniform_color([0.8, 0.8, 0.8])
-    o3d.visualization.draw_geometries([inlier_cloud, outlier_cloud])
-    return inlier_cloud
-# cl, ind = pcd.remove_statistical_outlier(nb_neighbors=3,
-#                                                     std_ratio=0.02)
-cl, ind = pcd.remove_radius_outlier(nb_points=5, radius=100)
 
-pcld=display_inlier_outlier(pcd, ind)
-pcld_points=np.asarray(pointsList, dtype=np.float32)
-pcld_points=pcld_points[0,:,:]
-point_cloud=pv.PolyData(pcld_points)
-mesh=point_cloud.reconstruct_surface()
-# #mesh.save('mesh.stl')
-#point_cloud.plot(eye_dome_lighting=True)
-mesh.plot(color='green')
+# pcd, ind = pcd.remove_statistical_outlier(nb_neighbors=3,std_ratio=0.02)
+# pcd, ind = pcd.remove_radius_outlier(nb_points=12, radius=50)
 
-# point_cloud=points
-# point_cloud[:, 2] *= 0.1
-# plane, center, normal = pv.fit_plane_to_points(point_cloud, return_meta=True)
-# pl = pv.Plotter()
-# _ = pl.add_mesh(plane, color='tan', style='wireframe', line_width=4)
-# _ = pl.add_points(point_cloud, render_points_as_spheres=True, color='r', point_size=1)
-# pl.show()
+# Flipping pointcloud,so it's not upside down.
+#pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+## Plane Segmentation and Removal
+# inlier_cloud=1
+# while inlier_cloud!=pcd:
+#      plane_model, inliers = pcd.segment_plane(distance_threshold=10,
+#                                              ransac_n=3,
+#                                              num_iterations=1000)
+#      [a, b, c, d] = plane_model
+#      print(f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
+#      print("Displaying pointcloud with planar points in red ...")
+#      inlier_cloud = pcd.select_by_index(inliers)
+#      inlier_cloud.paint_uniform_color([1.0, 0, 0])
+#      outlier_cloud = pcd.select_by_index(inliers, invert=True)
+#      o3d.visualization.draw([inlier_cloud, outlier_cloud])
+#      pcd=outlier_cloud
+     
+segment_models={}
+segments={}
+max_plane_idx=6
+rest=pcd
+d_threshold=100
+for i in range(max_plane_idx):
+    colors = plt.get_cmap("tab20")(i)
+    segment_models[i], inliers = rest.segment_plane(distance_threshold=10,ransac_n=3,num_iterations=1000)
+    [a, b, c, d] = segment_models[i]
+    print("Displaying pointcloud with planar points in",i+1, "th segment",f"Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
+    angle=np.arccos(c/(a*a+b*b+c*c))
+    print("Inclination=",angle*180/np.pi%90, "°")
+    segments[i]=rest.select_by_index(inliers)
+    labels = np.array(segments[i].cluster_dbscan(eps=d_threshold*10, min_points=20))
+    candidates=[len(np.where(labels==j)[0]) for j in np.unique(labels)]
+    best_candidate=int(np.unique(labels)[np.where(candidates== np.max(candidates))[0]])
+    segments[i].paint_uniform_color(list(colors[:3]))
+    rest = rest.select_by_index(inliers, invert=True) + segments[i].select_by_index(list(np.where(labels!=best_candidate)[0]))
+    segments[i]=segments[i].select_by_index(list(np.where(labels== best_candidate)[0]))
+    print("pass",i,"/",max_plane_idx,"done.")
+
+labels = np.array(rest.cluster_dbscan(eps=0.05, min_points=5))
+max_label = labels.max()
+print(f"point cloud has {max_label + 1} clusters")
+colors = plt.get_cmap("tab10")(labels / (max_label if max_label > 0 else 1))
+colors[labels < 0] = 0
+rest.colors = o3d.utility.Vector3dVector(colors[:, :3])
+o3d.visualization.draw([segments[i] for i in range(max_plane_idx)])#+[rest])
