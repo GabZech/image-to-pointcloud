@@ -1,3 +1,4 @@
+#%%
 import numpy as np
 import laspy as laspy
 import pyvista as pv
@@ -23,6 +24,7 @@ pcd.points=o3d.utility.Vector3dVector(points)
 
 # Flipping pointcloud,so it's not upside down.
 #pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
+
 ## Plane Segmentation and Removal
 # inlier_cloud=1
 # while inlier_cloud!=pcd:
@@ -39,13 +41,12 @@ pcd.points=o3d.utility.Vector3dVector(points)
 #      pcd=outlier_cloud
      
 segment_models={}
-pts=[]
-vector=[]
-inclination=[]
+segments={}
+roof = {"id":[],"pts":[],"vector":[],"inclination":[]};
 max_plane_idx=6
 rest=pcd
 d_threshold=100
-segments={}
+
 for i in range(max_plane_idx):
     colors = plt.get_cmap("tab20")(i)
     segment_models[i], inliers = rest.segment_plane(distance_threshold=10,ransac_n=3,num_iterations=10000)
@@ -62,14 +63,15 @@ for i in range(max_plane_idx):
     segments[i]=segments[i].select_by_index(list(np.where(labels== best_candidate)[0]))
     print("pass",i,"/",max_plane_idx,"done.")
 
-    #pts[i]=np.asarray(inliers)
-    pts.append(np.asarray(inliers))
-    #vector[i]=np.asarray(segment_models[i])
-    vector.append(np.asarray(segment_models[i]))
-    #inclination[i]=angle
-    inclination.append(angle)
+    
 
-segments=np.concatenate((pts,vector,inclination),axis=1)
+    roof["id"].append(i)
+    roof["pts"].append(np.asarray(segments[i]))
+    roof["vector"].append([a,b,c,d])
+    roof["inclination"].append(angle)	
+
+
+
 labels = np.array(rest.cluster_dbscan(eps=0.05, min_points=5))
 max_label = labels.max()
 print(f"point cloud has {max_label + 1} clusters")
@@ -77,4 +79,6 @@ colors = plt.get_cmap("tab10")(labels / (max_label if max_label > 0 else 1))
 colors[labels < 0] = 0
 rest.colors = o3d.utility.Vector3dVector(colors[:, :3])
 o3d.visualization.draw([segments[i] for i in range(max_plane_idx)])#+[rest])
-print(segments)
+print(roof)
+
+# %%
