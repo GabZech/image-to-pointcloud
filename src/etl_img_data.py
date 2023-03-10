@@ -21,6 +21,7 @@ import geopandas as gpd
 import rasterio
 from rasterio.mask import mask
 import numpy as np
+#import cv2
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import filter_buildings, remove_buildings_outside_tile
@@ -29,8 +30,8 @@ from functions_process import extract_building_id, extract_coords_tilename, read
 ############################
 ### FUNCTION DEFINITIONS ###
 
-def read_convert_save_tiles(tile_names, base_url, save_folder, rewrite=False) -> None:
-    """Reads, converts and saves tile images as tiff
+def read_convert_save_tile(tile_name, base_url, save_folder, rewrite=False) -> None:
+    """Reads, converts and saves tile images as png
 
     Args:
         tile_names (list): list of tile names
@@ -43,26 +44,26 @@ def read_convert_save_tiles(tile_names, base_url, save_folder, rewrite=False) ->
     """
     skipped_download = 0
 
-    for tile_name in tile_names:
-        img_url = f"{base_url}{tile_name}.jp2"
-        save_path = f"{save_folder}{tile_name}.tiff"
+    img_url = f"{base_url}{tile_name}.jp2"
+    save_path = f"{save_folder}{tile_name}.tiff"
 
-        # read image
-        if not os.path.exists(save_path) or rewrite:
-            with rasterio.open(img_url, "r") as src:
+    # read image
+    if not os.path.exists(save_path) or rewrite:
 
-                profile = src.profile
-                profile.update(count=3, driver='GTiff')
+        with rasterio.open(img_url, "r") as src:
 
-                # keep only RGB channels
-                img_rgb = src.read([1,2,3])
+            # keep only RGB channels
+            img_rgb = src.read([1,2,3])
 
-                # save image as tiff
-                with rasterio.open(save_path, 'w', **profile) as dst:
-                    dst.write(img_rgb)
-                    print(f"Downloaded {save_path}")
-        else:
-            skipped_download += 1
+            profile = src.profile
+            profile.update(count=3, driver='GTiff')
+
+            # save image as png
+            with rasterio.open(save_path, 'w', **profile) as dst:
+                dst.write(img_rgb)
+                print(f"Downloaded {save_path}")
+    else:
+        skipped_download += 1
 
     if skipped_download > 0:
         print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
@@ -109,10 +110,10 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
     above_224 = 0
 
     for tile_name in tile_names:
-        image_path = src_images_folder + tile_name + ".tiff"
+        tile_path = src_images_folder + tile_name + ".tiff"
 
         # open image
-        with rasterio.open(image_path, "r") as src:
+        with rasterio.open(tile_path, "r") as src:
             assert src.crs == gdf.crs # check if crs of image and gdf are the same
             # subset gdf to buildings on the current tile
             gdf_temp = gdf[gdf["kachelname"] == tile_name]
@@ -122,11 +123,11 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
                 building_id = extract_building_id(row["id"])
 
                 if name_id_only:
-                    filename = f"{dst_images_folder}{building_id}.tiff"
+                    filename = f"{dst_images_folder}{building_id}.png"
                 else:
                     # lowercase, remove spaces and special characters from building function
                     building_function = row["funktion"].lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
-                    filename = f"{dst_images_folder}{building_function}_{building_id}.tiff"
+                    filename = f"{dst_images_folder}{building_function}_{building_id}.png"
 
                 if not os.path.exists(filename) or rewrite:
                     # create mask for building
@@ -190,14 +191,12 @@ if __name__ == "__main__":
     metadata = read_metadata(tile_names, raw_data_folder, metadata_filename)
 
     # 2. Download and read images, footprints and building information
-    base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
-    # read image tiles from API, convert and save them as .tiff
-    read_convert_save_tiles(tile_names, base_url, raw_data_folder, rewrite=rewrite_download)
-
-    # get geodataframe containing info on all buildings in the selected tiles
     gdf = gpd.GeoDataFrame()
+    base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
     for tile_name in tile_names:
+
+        read_convert_save_tile(tile_name, base_url, raw_data_folder, rewrite=rewrite_download)
 
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
