@@ -1,5 +1,5 @@
 #%%
-import os 
+import os
 os.chdir('/Users/nassimzoueini/Documents/GitHub/image-to-pointcloud/')
 
 #%%
@@ -26,8 +26,8 @@ point_data = np.stack([las.X, las.Y, las.Z], axis=0).transpose((1, 0))
 import json
 import numpy as np
 
-# ann_path = "datasets/train/annotation/264198353.json"
-ann_path = "data/processed/pcs/50520652.json"
+#ann_path = "datasets/train/annotation/264198353.json"
+ann_path = "data/processed/pcs/50532955.json"
 
 
 f = open(ann_path)
@@ -37,6 +37,16 @@ f.close()
 point_data = np.array(ann["lidar"])
 
 #point_data = point_data.transpose((1, 0))
+
+#%%
+
+### VISUALISE RES FILE ###
+
+import torch
+
+results = torch.load('data/results/sat2pc/test.res', map_location=torch.device('cpu'))
+
+point_data = results[0][list(results[0].keys())[0]]['final_out'].numpy()
 
 #%%
 
