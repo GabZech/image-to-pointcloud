@@ -5,6 +5,7 @@ data/raw/pcs/*.laz
 data/processed/pcs/*.las
 dev-commands.txt
 datasets/
+data/raw/images/dop_nw.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -135,3 +136,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+

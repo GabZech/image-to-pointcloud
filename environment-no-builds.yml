@@ -15,6 +15,7 @@ dependencies:
   - python-pdal
   - gdal
   - ipykernel
+  - torch==1.9.0
   - pip
 
   - pip:
