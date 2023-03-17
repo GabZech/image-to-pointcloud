@@ -40,11 +40,12 @@ pcd.points=o3d.utility.Vector3dVector(points)
 #      outlier_cloud = pcd.select_by_index(inliers, invert=True)
 #      o3d.visualization.draw([inlier_cloud, outlier_cloud])
 #      pcd=outlier_cloud
-     
+max_plane_idx=5  
+
 segment_models={}
 segments={}
 roof = {"id":[],"pts":[],"vector":[],"inclination":[]};
-max_plane_idx=5
+
 rest=pcd
 d_threshold=100
 

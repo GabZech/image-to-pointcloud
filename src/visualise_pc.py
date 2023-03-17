@@ -12,7 +12,7 @@ import numpy as np
 #las_file = "50521070.las" # ok
 #las_file = "50521231.las" # noisy
 #las_file = "50526618.las" # has an umbrella on the image, check if it is in the point cloud
-las_file = "50520652.las" # noisy
+las_file = "50521231.las" # noisy
 folder_files = "data/processed/pcs/"
 
 las = laspy.read(f"{folder_files}{las_file}")
