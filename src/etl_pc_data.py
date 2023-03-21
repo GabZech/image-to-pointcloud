@@ -2,13 +2,10 @@
 #######################
 ### GOBAL VARIABLES ###
 
-tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
-building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
-min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/pcs/"
 processed_data_folder = "data/processed/pcs/"
-rewrite_download=True # if True, metadata and tiles will be downloaded again, even if they already exist
-rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
+rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
+rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
 
 ###############
 ### IMPORTS ###
@@ -22,7 +19,7 @@ import numpy as np
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import remove_buildings_outside_tile
-from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
+from functions_process import extract_building_id, extract_coords_tilename, read_metadata
 
 ############################
 ### FUNCTION DEFINITIONS ###
@@ -70,29 +67,29 @@ if __name__ == "__main__":
                     skiprows = 6,
                     rewrite_download=rewrite_download)
 
-    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename)
+    tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
+    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
+    # metadata = pd.read_csv("data/raw/images/dop_nw.csv")
+    # tile_names = metadata["Kachelname"]
 
     # 2. Download and read pointclouds, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
 
     # get geodataframe containing info on all buildings in the selected tiles
-    skipped_download = 0
     skipped_processing = 0
 
     # get list of buildings for which there are images in processed/images
     buildings = [f[:-5] for f in os.listdir("data/processed/images/") if f.endswith(".png")]
 
+    count_tiles = len(tile_names)
+
     for tile_name in tile_names:
 
         pc_url = f"{base_url}{tile_name}.laz"
-        tile_file = f"{raw_data_folder}{tile_name}.laz"
+        tile_file = f"{raw_data_folder}tile_temporary.laz"
 
         # download pointcloud
-        if not os.path.exists(tile_file) or rewrite_download:
-            urllib.request.urlretrieve(pc_url, tile_file)
-            print(f"Downloaded {tile_file}")
-        else:
-            skipped_download += 1
+        urllib.request.urlretrieve(pc_url, tile_file)
 
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
@@ -144,12 +141,10 @@ if __name__ == "__main__":
             else:
                 skipped_processing += 1
 
-        print(f"Finished processing {tile_name}.")
-
-if skipped_download > 0:
-    print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
+        count_tiles -= 1
+        print(f"Finished {tile_name}. Remaining tiles: {count_tiles}")
 
 if skipped_processing > 0:
-    print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
+    print(f"\n{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
 
 print(f"\nDone. Files can be found in {processed_data_folder}.")

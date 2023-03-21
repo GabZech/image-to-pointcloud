@@ -2,7 +2,6 @@
 #######################
 ### GOBAL VARIABLES ###
 
-tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
 building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
 roof_types = ["Saddle Roof", "Walmdach Roof", "Tent Roof"]
 has_solar = False
@@ -34,7 +33,7 @@ from creds import sub_key
 ############################
 ### FUNCTION DEFINITIONS ###
 
-def read_convert_save_tile(tile_name, base_url, save_folder, rewrite=False) -> None:
+def read_convert_save_tile(tile_name, base_url, save_folder) -> None:
     """Reads, converts and saves tile images as png
 
     Args:
@@ -46,32 +45,23 @@ def read_convert_save_tile(tile_name, base_url, save_folder, rewrite=False) -> N
     Returns:
         None
     """
-    skipped_download = 0
 
     img_url = f"{base_url}{tile_name}.jp2"
-    save_path = f"{save_folder}{tile_name}.tiff"
+    save_path = f"{save_folder}tile_temporary.tiff"
 
     # read image
-    if not os.path.exists(save_path) or rewrite:
 
-        with rasterio.open(img_url, "r") as src:
+    with rasterio.open(img_url, "r") as src:
 
-            # keep only RGB channels
-            img_rgb = src.read([1,2,3])
+        # keep only RGB channels
+        img_rgb = src.read([1,2,3])
 
-            profile = src.profile
-            profile.update(count=3, driver='GTiff')
+        profile = src.profile
+        profile.update(count=3, driver='GTiff')
 
-            # save image as png
-            with rasterio.open(save_path, 'w', **profile) as dst:
-                dst.write(img_rgb)
-                print(f"Downloaded {save_path}")
-    else:
-        skipped_download += 1
-
-    if skipped_download > 0:
-        print(f"{skipped_download} tiles already existed and were skipped. Set rewrite_download=True to overwrite those files.")
-
+        # save image as png
+        with rasterio.open(save_path, 'w', **profile) as dst:
+            dst.write(img_rgb)
 
 def create_mask_from_shape(img, shape, crop=True, pad=False):
     """Create mask of a building from shapefile
@@ -96,7 +86,7 @@ def create_mask_from_shape(img, shape, crop=True, pad=False):
     return out_image, out_meta
 
 
-def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_folder, rewrite=False, name_id_only=True):
+def extract_individual_buildings(gdf, src_images_folder, dst_images_folder, rewrite=False, name_id_only=True):
     """Extract and save images of individual buildings from image tiles
 
         Args:
@@ -113,44 +103,43 @@ def extract_individual_buildings(tile_names, gdf, src_images_folder, dst_images_
     skipped_processing = 0
     above_224 = 0
 
-    for tile_name in tile_names:
-        tile_path = src_images_folder + tile_name + ".tiff"
+    tile_path = f"{src_images_folder}tile_temporary.tiff"
 
-        # open image
-        with rasterio.open(tile_path, "r") as src:
-            assert src.crs == gdf.crs # check if crs of image and gdf are the same
-            # subset gdf to buildings on the current tile
-            gdf_temp = gdf[gdf["kachelname"] == tile_name]
+    # open image
+    with rasterio.open(tile_path, "r") as src:
+        assert src.crs == gdf.crs # check if crs of image and gdf are the same
+        # subset gdf to buildings on the current tile
+        gdf_temp = gdf[gdf["kachelname"] == tile_name]
 
-            for index, row in gdf_temp.iterrows():
+        for index, row in gdf_temp.iterrows():
 
-                building_id = extract_building_id(row["id"])
+            building_id = extract_building_id(row["id"])
 
-                if name_id_only:
-                    filename = f"{dst_images_folder}{building_id}.png"
+            if name_id_only:
+                filename = f"{dst_images_folder}{building_id}.png"
+            else:
+                # lowercase, remove spaces and special characters from building function
+                building_function = row["funktion"].lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+                filename = f"{dst_images_folder}{building_function}_{building_id}.png"
+
+            if not os.path.exists(filename) or rewrite:
+                # create mask for building
+                out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
+
+                if out_image.shape[1] <= 224 and out_image.shape[2] <= 224: # filters out images that have a dimension smaller than 224 pixels
+                    # pad image to 224x224
+                    extra_left, extra_right, extra_top, extra_bottom = get_padding_dim(out_image)
+                    out_image = np.pad(out_image, ((0, 0), (extra_top, extra_bottom), (extra_left, extra_right)), mode='constant', constant_values=0)
+                    out_meta.update({"height": 224, "width": 224})
+                    with rasterio.open(filename, "w", **out_meta) as dest:
+                        dest.write(out_image)
                 else:
-                    # lowercase, remove spaces and special characters from building function
-                    building_function = row["funktion"].lower().replace(" ", "_").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
-                    filename = f"{dst_images_folder}{building_function}_{building_id}.png"
-
-                if not os.path.exists(filename) or rewrite:
-                    # create mask for building
-                    out_image, out_meta = create_mask_from_shape(src, [row["geometry"]], crop=True, pad=True)
-
-                    if out_image.shape[1] <= 224 and out_image.shape[2] <= 224: # filters out images that have a dimension smaller than 224 pixels
-                        # pad image to 224x224
-                        extra_left, extra_right, extra_top, extra_bottom = get_padding_dim(out_image)
-                        out_image = np.pad(out_image, ((0, 0), (extra_top, extra_bottom), (extra_left, extra_right)), mode='constant', constant_values=0)
-                        out_meta.update({"height": 224, "width": 224})
-                        with rasterio.open(filename, "w", **out_meta) as dest:
-                            dest.write(out_image)
-                    else:
-                        above_224 += 1
-                else:
-                    skipped_processing += 1
+                    above_224 += 1
+            else:
+                skipped_processing += 1
 
     if skipped_processing > 0:
-        print(f"{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
+        print(f"{skipped_processing} individual building images already existed in {dst_images_folder} and were skipped. Set rewrite_processing=True to overwrite those files.")
 
     return above_224
 
@@ -191,16 +180,17 @@ if __name__ == "__main__":
                     skiprows=5,
                     rewrite_download=rewrite_download)
 
-    # read and filter metadata
-    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename)
+    tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
+    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
+    # metadata = pd.read_csv("data/raw/images/dop_nw.csv")
+    # tile_names = metadata["Kachelname"]
 
     # 2. Download and read images, footprints and building information
     gdf = gpd.GeoDataFrame()
-    base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
     for tile_name in tile_names:
 
-        read_convert_save_tile(tile_name, base_url, raw_data_folder, rewrite=rewrite_download)
+        # read_convert_save_tile(tile_name, base_url, raw_data_folder, rewrite=rewrite_download)
 
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
@@ -240,8 +230,23 @@ if __name__ == "__main__":
     gdf.to_csv(gdf_filename)
     print(f"\nFound {len(gdf)} buildings to be processed. Saved metadata to {gdf_filename}")
 
+#%%
+if __name__ == "__main__":
     # 3. Extract images of individual buildings
-    above_224 = extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+    base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
-    print(f"{above_224} buildings were removed because they had one or more dimensions larger than 224 pixels.")
+    count_tiles = len(tile_names)
+    count_excluded = 0
+
+    for tile_name in tile_names:
+
+        read_convert_save_tile(tile_name, base_url, raw_data_folder)
+        above_224 = extract_individual_buildings(gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+        count_excluded += above_224
+        count_tiles -= 1
+        print(f"Finished {tile_name}. Remaining tiles: {count_tiles}")
+
+    print(f"\n{count_excluded} buildings were removed because they had one or more dimensions larger than 224 pixels.")
     print(f"\nDone. Files can be found in {processed_data_folder}.")
+
+# %%
