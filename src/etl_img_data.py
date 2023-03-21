@@ -3,7 +3,9 @@
 ### GOBAL VARIABLES ###
 
 tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
-building_types = ["Wohnhaus"] # select building types to keep. All other building types will be removed.
+building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
+roof_types = ["Saddle Roof", "Walmdach Roof", "Tent Roof"]
+has_solar = False
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/images/"
 processed_data_folder = "data/processed/images/"
@@ -229,6 +231,10 @@ if __name__ == "__main__":
     gdf_credium = pd.concat(dfs, ignore_index=True)
 
     gdf = gdf.merge(gdf_credium, left_on="gml_id", right_on="gmlid", how='left')
+
+    # apply further filters based on credium data
+    gdf = gdf[gdf["roofType"].isin(roof_types)]
+    gdf = gdf[gdf["hasSolar"] == has_solar]
 
     gdf_filename = "data/processed/buildings_metadata.csv"
     gdf.to_csv(gdf_filename)
