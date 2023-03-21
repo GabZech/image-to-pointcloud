@@ -80,7 +80,7 @@ if __name__ == "__main__":
     skipped_processing = 0
 
     # get list of buildings for which there are images in processed/images
-    buildings = [f[:-5] for f in os.listdir("data/processed/images/") if f.endswith(".tiff")]
+    buildings = [f[:-5] for f in os.listdir("data/processed/images/") if f.endswith(".png")]
 
     for tile_name in tile_names:
 
