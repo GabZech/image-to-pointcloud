@@ -8,7 +8,7 @@ min_area = 100 # area (in square meters) of buildings that will be kept. Buildin
 raw_data_folder = "data/raw/images/"
 processed_data_folder = "data/processed/images/"
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
-rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
+rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
 
 name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
 
@@ -18,14 +18,16 @@ name_id_only = True # if True, only the building id will be used when saving the
 import os
 
 import geopandas as gpd
+import pandas as pd
 import rasterio
 from rasterio.mask import mask
 import numpy as np
 #import cv2
 
-from functions_download import download_metadata, prepare_building_data, create_dirs
+from functions_download import download_metadata, prepare_building_data, create_dirs, get_credium_metadata
 from functions_filter import filter_buildings, remove_buildings_outside_tile
 from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
+from creds import sub_key
 
 ############################
 ### FUNCTION DEFINITIONS ###
@@ -208,10 +210,32 @@ if __name__ == "__main__":
     # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
 
-    print(f"Found {len(gdf)} buildings to be processed.")
+    # create a list of gml_ids with last 2 characters removed
+    gml_ids = [gml_id[:-2] for gml_id in gdf["gml_id"]]
+    gdf["gml_id"] = gml_ids
+
+    count = len(gml_ids)
+    range = list(range(0, count, 50))
+
+    # iterate over gml_ids and append dataframes to dfs list
+    dfs = []
+    for gml_id in gml_ids:
+        df_single = get_credium_metadata(gml_id, sub_key)
+        dfs.append(df_single)
+        count -= 1
+        if count in range:
+            print(f"Remaining buildings: {count}")
+    # concatenate all dataframes in dfs list into a single dataframe
+    gdf_credium = pd.concat(dfs, ignore_index=True)
+
+    gdf = gdf.merge(gdf_credium, left_on="gml_id", right_on="gmlid", how='left')
+
+    gdf_filename = "data/processed/buildings_metadata.csv"
+    gdf.to_csv(gdf_filename)
+    print(f"\nFound {len(gdf)} buildings to be processed. Saved metadata to {gdf_filename}")
 
     # 3. Extract images of individual buildings
     above_224 = extract_individual_buildings(tile_names, gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
 
+    print(f"{above_224} buildings were removed because they had one or more dimensions larger than 224 pixels.")
     print(f"\nDone. Files can be found in {processed_data_folder}.")
-    print(f"\n{above_224} buildings were removed because they had one or more dimensions larger than 224 pixels.")

@@ -1,3 +1,4 @@
+import json
 import os
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -7,6 +8,7 @@ from zipfile import ZipFile
 import geopandas as gpd
 import pandas as pd
 import shapely
+
 
 def create_dirs(dirs: list) -> None:
     """Creates directories if they don't exist
@@ -131,3 +133,28 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
     gdf = gpd.GeoDataFrame(df, crs=crs)
 
     return gdf
+
+def get_credium_metadata(gml_id, sub_key):
+    """Downloads metadata for a given gml_id from credium api"""
+    try:
+        url = f"https://credium-api.azure-api.net/base/api/Building/{gml_id}"
+
+        hdr ={
+        # Request headers
+        'Cache-Control': 'no-cache',
+        'Ocp-Apim-Subscription-Key': sub_key,
+        }
+
+        req = urllib.request.Request(url, headers=hdr)
+
+        req.get_method = lambda: 'GET'
+        response = urllib.request.urlopen(req)
+
+        s = str(response.read(),'utf-8')
+        jdata = json.loads(s)
+        df = pd.DataFrame(jdata, index=[0])
+        return df
+
+    except Exception as e:
+        print(f"Data not found for {gml_id} ({e})")
+
