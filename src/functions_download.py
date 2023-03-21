@@ -103,13 +103,18 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
 
     buildings = [i.text for i in root.findall('.//gml:posList', namespace)]
 
-    funktions = [i.text for i in root.iter('{http://repository.gdi-de.org/schemas/adv/produkt/alkis-vereinfacht/2.0}funktion')]
+    funktions = [i.text for i in root.findall('.//xmlns:funktion', namespace)]
+    #funktions1 = [i.text for i in root.iter('{http://repository.gdi-de.org/schemas/adv/produkt/alkis-vereinfacht/2.0}funktion')]
 
     ids = [i.items()[0][1] for i in root.findall('.//gml:MultiSurface[@gml:id]', namespace)]
 
+    gml_ids = [i.text for i in root.findall('.//xmlns:oid', namespace)]
+    #gml_ids = [i.items()[0][1] for i in root.findall('.//xmlns:GebaeudeBauwerk[@gml:id]', namespace)]
+    #gml_ids = [i.text for i in root.iter("{http://repository.gdi-de.org/schemas/adv/produkt/alkis-vereinfacht/2.0}oid")]
+
     building_shapefiles = []
 
-    for id, funktion, build in zip(ids, funktions, buildings):
+    for id, gml_id, funktion, build in zip(ids, gml_ids, funktions, buildings):
         # coordinates are not in the correct format, therefore need to be rearranged
         coord_iter = iter(build.split(' '))
         coords = list(map(tuple, zip(coord_iter, coord_iter)))
@@ -118,7 +123,7 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
         poly = shapely.geometry.Polygon([[float(p[0]), float(p[1])] for p in coords])
 
         # create records of each building on the selected tile
-        building_shapefiles.append({'id': id, 'funktion':funktion, 'geometry': poly})
+        building_shapefiles.append({'id': id, 'gml_id': gml_id, 'funktion':funktion, 'geometry': poly})
 
     df = pd.DataFrame.from_records(building_shapefiles)
 
