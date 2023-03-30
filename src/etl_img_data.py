@@ -182,7 +182,7 @@ if __name__ == "__main__":
     # tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
 
-    metadata = pd.read_csv("data/processed/tiles_sample.csv")
+    metadata = pd.read_csv("data/processed/tiles_sample_img.csv")
     tile_names = metadata["Kachelname"]
 
     # 2. Download and read images, footprints and building information

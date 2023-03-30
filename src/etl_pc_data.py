@@ -16,6 +16,7 @@ import urllib.request
 
 import pdal
 import numpy as np
+import pandas as pd
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import remove_buildings_outside_tile
@@ -67,10 +68,10 @@ if __name__ == "__main__":
                     skiprows = 6,
                     rewrite_download=rewrite_download)
 
-    tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
+    #tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-    # metadata = pd.read_csv("data/raw/images/dop_nw.csv")
-    # tile_names = metadata["Kachelname"]
+    metadata = pd.read_csv("data/processed/tiles_sample_pcs.csv")
+    tile_names = metadata["Kachelname"]
 
     # 2. Download and read pointclouds, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
