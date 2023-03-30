@@ -53,15 +53,10 @@ def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows
 
 def prepare_building_data(tile_name, coords):
     """Prepares building data from given tile name"""
-    try:
-        gdf_temp = download_building_data(coords, crs='EPSG:25832')
-        gdf_temp["kachelname"] = tile_name
+    gdf_temp = download_building_data(coords, crs='EPSG:25832')
+    gdf_temp["kachelname"] = tile_name
 
-        return gdf_temp
-
-    except ValueError:
-        print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
-
+    return gdf_temp
 
 def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
     """Get geopandas dataframe containing building shapes and information from API
@@ -137,7 +132,8 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
 def get_credium_metadata(gml_id, sub_key):
     """Downloads metadata for a given gml_id from credium api"""
     try:
-        url = f"https://credium-api.azure-api.net/base/api/Building/{gml_id}"
+        #url = f"https://credium-api.azure-api.net/base/api/Building/{gml_id}"
+        url = f"https://credium-api.azure-api.net/dev/data-product/base/latest//{gml_id}"
 
         hdr ={
         # Request headers
@@ -151,8 +147,20 @@ def get_credium_metadata(gml_id, sub_key):
         response = urllib.request.urlopen(req)
 
         s = str(response.read(),'utf-8')
+
+        # # load json data from file
+        # with open('sample.json', 'r') as s:
+        #     jdata = json.load(s)
+
         jdata = json.loads(s)
-        df = pd.DataFrame(jdata, index=[0])
+
+        df_building = pd.DataFrame(jdata["buildingInformation"], index=[0])
+        df_roof = pd.DataFrame(jdata["buildingInformation"]["roofInformation"], index=[0])
+        df_roof["roofSurfaceCount"] = len(df_roof.roofSurfaces.values)
+        df_adrr = pd.DataFrame(jdata['addressInformation']["addresses"], index=[0])
+
+        df = pd.concat([df_building, df_roof, df_adrr], axis=1)
+
         return df
 
     except Exception as e:

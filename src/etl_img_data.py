@@ -4,7 +4,7 @@
 
 building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
 roof_types = ["Saddle Roof", "Walmdach Roof", "Tent Roof"]
-has_solar = False
+#has_solar = False
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
 raw_data_folder = "data/raw/images/"
 processed_data_folder = "data/processed/images/"
@@ -174,16 +174,16 @@ if __name__ == "__main__":
     # 1. Download and read metadata
     metadata_filename = "dop_nw.csv"
 
-    download_metadata(raw_data_folder,
-                    metadata_filename,
-                    url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
-                    skiprows=5,
-                    rewrite_download=rewrite_download)
+    # download_metadata(raw_data_folder,
+    #                 metadata_filename,
+    #                 url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
+    #                 skiprows=5,
+    #                 rewrite_download=rewrite_download)
+    # tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
+    # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
 
-    tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
-    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-    # metadata = pd.read_csv("data/raw/images/dop_nw.csv")
-    # tile_names = metadata["Kachelname"]
+    metadata = pd.read_csv("data/processed/tiles_sample.csv")
+    tile_names = metadata["Kachelname"]
 
     # 2. Download and read images, footprints and building information
     gdf = gpd.GeoDataFrame()
@@ -195,9 +195,12 @@ if __name__ == "__main__":
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
         coords = (coords[0] * 1000, coords[1] * 1000) # multiply by 1000 to get coordinates in meters
-        gdf_temp = prepare_building_data(tile_name, coords)
-        gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
-        gdf = read_concat_gdf(gdf, gdf_temp)
+        try:
+            gdf_temp = prepare_building_data(tile_name, coords)
+            gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
+            gdf = read_concat_gdf(gdf, gdf_temp)
+        except ValueError:
+            print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
 
     # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
@@ -224,7 +227,7 @@ if __name__ == "__main__":
 
     # apply further filters based on credium data
     gdf = gdf[gdf["roofType"].isin(roof_types)]
-    gdf = gdf[gdf["hasSolar"] == has_solar]
+    #gdf = gdf[gdf["hasSolar"] == has_solar]
 
     gdf_filename = "data/processed/buildings_metadata.csv"
     gdf.to_csv(gdf_filename)

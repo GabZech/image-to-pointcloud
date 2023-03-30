@@ -68,7 +68,7 @@ if __name__ == "__main__":
                     rewrite_download=rewrite_download)
 
     tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
-    metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
+    # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
     # metadata = pd.read_csv("data/raw/images/dop_nw.csv")
     # tile_names = metadata["Kachelname"]
 
@@ -94,8 +94,11 @@ if __name__ == "__main__":
         # download footprint and information of buildings
         coords = extract_coords_tilename(tile_name)
         coords = (coords[0] * 1000, coords[1] * 1000) # multiply by 1000 to get coordinates in meters
-        gdf_temp = prepare_building_data(tile_name, coords)
-        gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
+        try:
+            gdf_temp = prepare_building_data(tile_name, coords)
+            gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
+        except ValueError:
+            print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
 
         # keep only buildings for which there are images in processed/images
         gdf_temp["building_id"] = gdf_temp["id"].apply(extract_building_id)
