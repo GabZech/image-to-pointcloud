@@ -11,7 +11,7 @@ min_area = 100 # area (in square meters) of buildings that will be kept. Buildin
 
 # directories
 run = "run2"
-data_folder = "D:/thesis/data/"
+data_folder = "data/"
 raw_data_folder = f"{data_folder}raw/images/"
 processed_metadata_folder = f"{data_folder}{run}/processed/"
 processed_data_folder = f"{processed_metadata_folder}images/"
