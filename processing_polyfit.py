@@ -73,8 +73,8 @@ pipeline_calc_normals_write_array_ply = """{
     }
   ]
 }"""
-plydir="data/processed/plyfiles"
-curr_plyfile = plydir+'/%s_mod.ply'
+plydir= 'data/processed/plyfiles'
+curr_plyfile = plydir+'/mod.ply'
 write_pipeline = pdal.Pipeline(pipeline_calc_normals_write_array_ply.replace(
     'PLYFILE', curr_plyfile), struct_arr)
 write_pipeline.execute()
@@ -90,7 +90,8 @@ print('created %s' %curr_plyfile)
 
 # %%
 ## run polyfit, which will create a watertight 3d object from our pointcloud:
-polyfit_exe = '/Users/nassimzoueini/Downloads/PolyFit'
+# polyfit_exe = '/Users/nassimzoueini/Downloads/PolyFit.app'
+polyfit_exe= '/Users/nassimzoueini/Documents/GitHub/PolyFit/Release/bin/Example'
 polyoutdir='/Users/nassimzoueini/Documents/PolyfitDirectory'
 ## RANSAC parameters:
 probability = 0.8
@@ -99,8 +100,8 @@ epsilon = 0.25
 cluster_epsilon = 6.25
 normal_threshold = 0.01
 
-polyfit_out_surfaces = polyoutdir+'/%s_fitted.off' 
-polyfit_out_meshes = plydir+'/%s_meshes.ply'
+polyfit_out_surfaces = polyoutdir+'/fitted.off' 
+polyfit_out_meshes = plydir+'/meshes.ply'
 polyfit_call = polyfit_exe+' %s %s %s %s %s %s %s %s' % (curr_plyfile,
                                                          polyfit_out_surfaces,
                                                          polyfit_out_meshes,
