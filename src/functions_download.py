@@ -132,13 +132,15 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
 def get_credium_metadata(gml_id, sub_key):
     """Downloads metadata for a given gml_id from credium api"""
     try:
-        #url = f"https://credium-api.azure-api.net/base/api/Building/{gml_id}"
+        # gml_id = "DENW06AL0004W3sR"
+        # from creds import sub_key
+
         url = f"https://credium-api.azure-api.net/dev/data-product/base/latest//{gml_id}"
 
         hdr ={
         # Request headers
         'Cache-Control': 'no-cache',
-        'Ocp-Apim-Subscription-Key': sub_key,
+        'subscription-key': sub_key,
         }
 
         req = urllib.request.Request(url, headers=hdr)
@@ -155,11 +157,35 @@ def get_credium_metadata(gml_id, sub_key):
         jdata = json.loads(s)
 
         df_building = pd.DataFrame(jdata["buildingInformation"], index=[0])
-        df_roof = pd.DataFrame(jdata["buildingInformation"]["roofInformation"], index=[0])
-        df_roof["roofSurfaceCount"] = len(df_roof.roofSurfaces.values)
+        df_roof = pd.json_normalize(jdata["buildingInformation"]["roofInformation"])
+        df_roof["roofSurfaceCount"] = len(jdata["buildingInformation"]["roofInformation"]["roofSurfaces"])
         df_adrr = pd.DataFrame(jdata['addressInformation']["addresses"], index=[0])
 
         df = pd.concat([df_building, df_roof, df_adrr], axis=1)
+
+        ###########################################
+
+        url = f"https://credium-api.azure-api.net/base/api/Building/{gml_id}"
+
+        hdr ={
+        # Request headers
+        'Cache-Control': 'no-cache',
+        'Ocp-Apim-Subscription-Key': sub_key,
+        }
+
+        req = urllib.request.Request(url, headers=hdr)
+
+        req.get_method = lambda: 'GET'
+        response = urllib.request.urlopen(req)
+
+        s = str(response.read(),'utf-8')
+
+        jdata = json.loads(s)
+
+        df_base = pd.DataFrame(jdata, index=[0])
+        df_base = df_base[["hasSolar", "solarProbability", "dormerCount", "googleLink", "crediumViewerLink"]]
+        df = pd.concat([df, df_base], axis=1)
+
 
         return df
 
