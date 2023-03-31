@@ -26,7 +26,6 @@ name_id_only = True # if True, only the building id will be used when saving the
 ### IMPORTS ###
 
 import os
-import shutil
 
 import geopandas as gpd
 import pandas as pd

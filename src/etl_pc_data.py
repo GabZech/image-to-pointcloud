@@ -2,7 +2,7 @@
 ### GOBAL VARIABLES ###
 
 #directories
-run = "run1"
+run = "run2"
 data_folder = "D:/thesis/data/"
 raw_data_folder = f"{data_folder}raw/images/"
 processed_metadata_folder = f"{data_folder}{run}/processed/"
@@ -19,7 +19,6 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 import json
 import os
 import urllib.request
-import shutil
 
 import pdal
 import numpy as np
