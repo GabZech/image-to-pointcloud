@@ -1,12 +1,14 @@
 #%%
 import pandas as pd
 
+n_samples = 300
+
 # IMAGES
 
 meta_img = pd.read_csv("data/raw/images/dop_nw.csv")
 
 # randomly select n tiles from the meta_img
-meta_img_sample = meta_img.sample(100, random_state=42)
+meta_img_sample = meta_img.sample(n_samples, random_state=42)
 
 meta_img_sample.to_csv("data/processed/tiles_sample_img.csv", index=False)
 

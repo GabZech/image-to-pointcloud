@@ -1,28 +1,36 @@
 #%%
-#######################
 ### GOBAL VARIABLES ###
 
-raw_data_folder = "data/raw/pcs/"
-processed_data_folder = "data/processed/pcs/"
+#directories
+run = "run1"
+data_folder = "D:/thesis/data/"
+raw_data_folder = f"{data_folder}raw/images/"
+processed_metadata_folder = f"{data_folder}{run}/processed/"
+processed_data_folder = f"{processed_metadata_folder}pcs/"
+processed_imgs_folder = f"{processed_metadata_folder}images/"
+
+#rewrite
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
 rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
 
-###############
+
 ### IMPORTS ###
 
 import json
 import os
 import urllib.request
+import shutil
 
 import pdal
 import numpy as np
 import pandas as pd
+import geopandas as gpd
 
 from functions_download import download_metadata, prepare_building_data, create_dirs
 from functions_filter import remove_buildings_outside_tile
-from functions_process import extract_building_id, extract_coords_tilename, read_metadata
+from functions_process import extract_building_id, extract_coords_tilename, move_to_subfolders, read_metadata
 
-############################
+
 ### FUNCTION DEFINITIONS ###
 
 def create_pdal_pipeline(polygon, tile_file):
@@ -52,7 +60,6 @@ def create_pdal_pipeline(polygon, tile_file):
     return pipeline
 
 #%%
-################
 ### RUN CODE ###
 
 if __name__ == "__main__":
@@ -60,17 +67,17 @@ if __name__ == "__main__":
     create_dirs([raw_data_folder, processed_data_folder])
 
     # 1. Download and read metadata
-    metadata_filename = "3dm_nw.csv"
+    # metadata_filename = "3dm_nw.csv"
 
-    download_metadata(raw_data_folder,
-                    metadata_filename,
-                    url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_meta.zip",
-                    skiprows = 6,
-                    rewrite_download=rewrite_download)
+    # download_metadata(raw_data_folder,
+    #                 metadata_filename,
+    #                 url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_meta.zip",
+    #                 skiprows = 6,
+    #                 rewrite_download=rewrite_download)
 
     #tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-    metadata = pd.read_csv("data/processed/tiles_sample_pcs.csv")
+    metadata = pd.read_csv(f"{data_folder}tiles_sample_pcs.csv")
     tile_names = metadata["Kachelname"]
 
     # 2. Download and read pointclouds, footprints and building information
@@ -80,7 +87,10 @@ if __name__ == "__main__":
     skipped_processing = 0
 
     # get list of buildings for which there are images in processed/images
-    buildings = [f[:-5] for f in os.listdir("data/processed/images/") if f.endswith(".png")]
+    saddle_bldgs = [f[:-4] for f in os.listdir(f"{processed_imgs_folder}saddle_roofs/") if f.endswith(".png")]
+    tent_bldgs = [f[:-4] for f in os.listdir(f"{processed_imgs_folder}tent_roofs/") if f.endswith(".png")]
+    flat_bldgs = [f[:-4] for f in os.listdir(f"{processed_imgs_folder}flat_roofs/") if f.endswith(".png")]
+    buildings = saddle_bldgs + tent_bldgs + flat_bldgs
 
     count_tiles = len(tile_names)
 
@@ -113,7 +123,7 @@ if __name__ == "__main__":
         for index, row in gdf_temp.iterrows():
 
             building_id = extract_building_id(row.id)
-            tile_file = f"{raw_data_folder}{row.kachelname}.laz"
+            #tile_file = f"{raw_data_folder}{row.kachelname}.laz"
             geometries.append(str(row.geometry))
             ids.append(building_id)
 
@@ -148,7 +158,19 @@ if __name__ == "__main__":
         count_tiles -= 1
         print(f"Finished {tile_name}. Remaining tiles: {count_tiles}")
 
-if skipped_processing > 0:
-    print(f"\n{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
+    if skipped_processing > 0:
+        print(f"\n{skipped_processing} individual building files already existed and were skipped. Set rewrite_processing=True to overwrite those files.")
 
-print(f"\nDone. Files can be found in {processed_data_folder}.")
+    # count number of files in folder
+    count_files = len([name for name in os.listdir(processed_data_folder) if os.path.isfile(os.path.join(processed_data_folder, name))])
+    print(f"Found {count_files} buildings in {processed_data_folder}")
+
+    # move files to subfolders
+    print("Moving files to subfolders...")
+
+    gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
+    gdf = gpd.read_file(gdf_filename)
+
+    move_to_subfolders(gdf, processed_data_folder)
+
+    print("Finished.")

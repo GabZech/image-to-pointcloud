@@ -1,22 +1,32 @@
 #%%
-#######################
 ### GOBAL VARIABLES ###
 
+# filters
 building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
-roof_types = ["Saddle Roof", "Walmdach Roof", "Tent Roof"]
-#has_solar = False
+#roof_types = ["Saddle Roof", "Tent Roof", "Flat Roof"]
+dormer_count = 0 # number of dormers that a building must have to be kept.
+#roof_surface_counts = [1, 2, 4]
+has_solar = False
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
-raw_data_folder = "data/raw/images/"
-processed_data_folder = "data/processed/images/"
+
+# directories
+run = "run2"
+data_folder = "D:/thesis/data/"
+raw_data_folder = f"{data_folder}raw/images/"
+processed_metadata_folder = f"{data_folder}{run}/processed/"
+processed_data_folder = f"{processed_metadata_folder}images/"
+
+# rewrite
 rewrite_download=False # if True, metadata and tiles will be downloaded again, even if they already exist
-rewrite_processing=False # if True, images of individual buildings will be created again, even if they already exist
+rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
 name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
 
-###############
+
 ### IMPORTS ###
 
 import os
+import shutil
 
 import geopandas as gpd
 import pandas as pd
@@ -27,10 +37,10 @@ import numpy as np
 
 from functions_download import download_metadata, prepare_building_data, create_dirs, get_credium_metadata
 from functions_filter import filter_buildings, remove_buildings_outside_tile
-from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, read_metadata
+from functions_process import extract_building_id, extract_coords_tilename, read_concat_gdf, move_to_subfolders, read_metadata
 from creds import sub_key
 
-############################
+
 ### FUNCTION DEFINITIONS ###
 
 def read_convert_save_tile(tile_name, base_url, save_folder) -> None:
@@ -164,7 +174,6 @@ def get_padding_dim(img):
     return extra_left, extra_right, extra_top, extra_bottom
 
 #%%
-################
 ### RUN CODE ###
 
 if __name__ == "__main__":
@@ -172,7 +181,7 @@ if __name__ == "__main__":
     create_dirs([raw_data_folder, processed_data_folder])
 
     # 1. Download and read metadata
-    metadata_filename = "dop_nw.csv"
+    #metadata_filename = "dop_nw.csv"
 
     # download_metadata(raw_data_folder,
     #                 metadata_filename,
@@ -182,8 +191,8 @@ if __name__ == "__main__":
     # tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
 
-    metadata = pd.read_csv("data/processed/tiles_sample_img.csv")
-    tile_names = metadata["Kachelname"]
+    metadata = pd.read_csv(f"{data_folder}tiles_sample_img.csv")
+    tile_names = metadata["Kachelname"][1:5]
 
     # 2. Download and read images, footprints and building information
     gdf = gpd.GeoDataFrame()
@@ -223,14 +232,23 @@ if __name__ == "__main__":
     # concatenate all dataframes in dfs list into a single dataframe
     gdf_credium = pd.concat(dfs, ignore_index=True)
 
-    gdf = gdf.merge(gdf_credium, left_on="gml_id", right_on="gmlid", how='left')
+    gdf = gdf.merge(gdf_credium, left_on="gml_id", right_on="buildingId", how='left')
+
+    gdf["building_id"] = gdf["id"].apply(extract_building_id)
 
     # apply further filters based on credium data
-    gdf = gdf[gdf["roofType"].isin(roof_types)]
-    #gdf = gdf[gdf["hasSolar"] == has_solar]
+    gdf = gdf[gdf["hasSolar"] == has_solar]
+    gdf = gdf[gdf["dormerCount"] == dormer_count]
+    gdf_saddle = gdf[(gdf["roofType"] == "Saddle Roof") & (gdf["roofSurfaceCount"] == 2)]
+    gdf_tent = gdf[(gdf["roofType"] == "Tent Roof") & (gdf["roofSurfaceCount"] == 4)]
+    gdf_flat = gdf[(gdf["roofType"] == "Flat Roof") & (gdf["roofSurfaceCount"] == 1)]
+    gdf = pd.concat([gdf_saddle, gdf_tent, gdf_flat], ignore_index=True)
 
-    gdf_filename = "data/processed/buildings_metadata.csv"
-    gdf.to_csv(gdf_filename)
+    # save metadata to file
+    gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
+    gdf["roofSurfaces"] = gdf["roofSurfaces"].astype(str)
+    gdf.to_file(gdf_filename, driver="GeoJSON")
+
     print(f"\nFound {len(gdf)} buildings to be processed. Saved metadata to {gdf_filename}")
 
 #%%
@@ -238,18 +256,34 @@ if __name__ == "__main__":
     # 3. Extract images of individual buildings
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
+    #gdf = gpd.read_file(gdf_filename)
+
     count_tiles = len(tile_names)
     count_excluded = 0
 
     for tile_name in tile_names:
-
-        read_convert_save_tile(tile_name, base_url, raw_data_folder)
-        above_224 = extract_individual_buildings(gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
-        count_excluded += above_224
+        try:
+            read_convert_save_tile(tile_name, base_url, raw_data_folder)
+            above_224 = extract_individual_buildings(gdf, raw_data_folder, processed_data_folder, rewrite=rewrite_processing, name_id_only=name_id_only)
+            count_excluded += above_224
+        except Exception as e: # if the tile could not be downloaded, skip it
+            print(f"Could not download tile {tile_name}. Error: {e}.")
+            count_tiles -= 1
+            continue
         count_tiles -= 1
         print(f"Finished {tile_name}. Remaining tiles: {count_tiles}")
 
     print(f"\n{count_excluded} buildings were removed because they had one or more dimensions larger than 224 pixels.")
-    print(f"\nDone. Files can be found in {processed_data_folder}.")
+
+    # count number of files in folder
+    count_files = len([name for name in os.listdir(processed_data_folder) if os.path.isfile(os.path.join(processed_data_folder, name))])
+    print(f"Found {count_files} buildings in {processed_data_folder}")
+
+    # move files to subfolders
+    print("Moving files to subfolders...")
+    move_to_subfolders(gdf, processed_data_folder)
+
+    print("Finished.")
+
 
 # %%

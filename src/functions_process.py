@@ -1,7 +1,11 @@
 import re
+import shutil
+import os
 
 import geopandas as gpd
 import pandas as pd
+
+from functions_download import create_dirs
 
 
 def read_metadata(tile_names, raw_data_folder, metadata_filename):
@@ -60,4 +64,28 @@ def extract_building_id(input_string) -> str:
         #return match.group(1) + '_' + match.group(2)
         return match.group(1)
     else:
-        return None
+        return
+
+
+def move_to_subfolders(gdf, processed_data_folder):
+
+    saddle_roofs = gdf[gdf["roofType"] == "Saddle Roof"].building_id.to_list()
+    tent_roofs = gdf[gdf["roofType"] == "Tent Roof"].building_id.to_list()
+    flat_roofs = gdf[gdf["roofType"] == "Flat Roof"].building_id.to_list()
+
+    saddle_dir = f"{processed_data_folder}saddle_roofs/"
+    tent_dir = f"{processed_data_folder}tent_roofs/"
+    flat_dir = f"{processed_data_folder}flat_roofs/"
+
+    create_dirs([saddle_dir, tent_dir, flat_dir])
+
+    for file in os.listdir(processed_data_folder):
+        if file.endswith(".png"):
+            if file[:-4] in saddle_roofs:
+                shutil.move(f"{processed_data_folder}{file}", f"{saddle_dir}{file}")
+            elif file[:-4] in tent_roofs:
+                shutil.move(f"{processed_data_folder}{file}", f"{tent_dir}{file}")
+            elif file[:-4] in flat_roofs:
+                shutil.move(f"{processed_data_folder}{file}", f"{flat_roofs}{file}")
+            else:
+                print(f"Could not move file {file} to subfolder.")
