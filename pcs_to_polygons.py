@@ -40,6 +40,7 @@ pcd.points=o3d.utility.Vector3dVector(points)
 #      outlier_cloud = pcd.select_by_index(inliers, invert=True)
 #      o3d.visualization.draw([inlier_cloud, outlier_cloud])
 #      pcd=outlier_cloud
+#
 max_plane_idx=5  
 
 segment_models={}
@@ -80,7 +81,8 @@ print(f"point cloud has {max_label + 1} clusters")
 colors = plt.get_cmap("tab10")(labels / (max_label if max_label > 0 else 1))
 colors[labels < 0] = 0
 rest.colors = o3d.utility.Vector3dVector(colors[:, :3])
-o3d.visualization.draw([segments[i] for i in range(max_plane_idx)])#+[rest])
+o3d.visualization.draw([segments[i] for i in range(max_plane_idx)]+[rest])
 #print(roof)
+
 
 # %%
