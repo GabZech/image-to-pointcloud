@@ -132,7 +132,7 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
 def get_credium_metadata(gml_id, sub_key):
     """Downloads metadata for a given gml_id from credium api"""
     try:
-        # gml_id = "DENW06AL0004W3sR"
+        # gml_id = "DENW25AL00006grQ"
         # from creds import sub_key
 
         url = f"https://credium-api.azure-api.net/dev/data-product/base/latest//{gml_id}"
@@ -159,7 +159,7 @@ def get_credium_metadata(gml_id, sub_key):
         df_building = pd.DataFrame(jdata["buildingInformation"], index=[0])
         df_roof = pd.json_normalize(jdata["buildingInformation"]["roofInformation"])
         df_roof["roofSurfaceCount"] = len(jdata["buildingInformation"]["roofInformation"]["roofSurfaces"])
-        df_adrr = pd.DataFrame(jdata['addressInformation']["addresses"], index=[0])
+        df_adrr = pd.DataFrame(jdata['addressInformation']["addresses"][0], index=[0])
 
         df = pd.concat([df_building, df_roof, df_adrr], axis=1)
 
