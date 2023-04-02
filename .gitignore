@@ -8,6 +8,7 @@ datasets/
 data/raw/images/dop_nw.csv
 PolyFit/
 creds.py
+run*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
