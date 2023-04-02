@@ -67,7 +67,7 @@ def extract_building_id(input_string) -> str:
         return
 
 
-def move_to_subfolders(gdf, processed_data_folder):
+def move_to_subfolders(gdf, processed_data_folder, format):
 
     saddle_roofs = gdf[gdf["roofType"] == "Saddle Roof"].building_id.to_list()
     tent_roofs = gdf[gdf["roofType"] == "Tent Roof"].building_id.to_list()
@@ -79,13 +79,16 @@ def move_to_subfolders(gdf, processed_data_folder):
 
     create_dirs([saddle_dir, tent_dir, flat_dir])
 
+    length = len(format)
+
     for file in os.listdir(processed_data_folder):
-        if file.endswith(".png"):
-            if file[:-4] in saddle_roofs:
-                shutil.move(f"{processed_data_folder}{file}", f"{saddle_dir}{file}")
-            elif file[:-4] in tent_roofs:
-                shutil.move(f"{processed_data_folder}{file}", f"{tent_dir}{file}")
-            elif file[:-4] in flat_roofs:
-                shutil.move(f"{processed_data_folder}{file}", f"{flat_roofs}{file}")
-            else:
-                print(f"Could not move file {file} to subfolder.")
+        if file.endswith(format):
+            try:
+                if file[:-length] in saddle_roofs:
+                    shutil.move(f"{processed_data_folder}{file}", f"{saddle_dir}{file}")
+                elif file[:-length] in tent_roofs:
+                    shutil.move(f"{processed_data_folder}{file}", f"{tent_dir}{file}")
+                elif file[:-length] in flat_roofs:
+                    shutil.move(f"{processed_data_folder}{file}", f"{flat_dir}{file}")
+            except Exception as e:
+                print(f"Could not move file {file} to subfolder ({e})")

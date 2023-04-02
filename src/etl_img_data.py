@@ -191,7 +191,7 @@ if __name__ == "__main__":
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
 
     metadata = pd.read_csv(f"{data_folder}tiles_sample_img.csv")
-    tile_names = metadata["Kachelname"][1:5]
+    tile_names = metadata["Kachelname"]
 
     # 2. Download and read images, footprints and building information
     gdf = gpd.GeoDataFrame()
@@ -280,9 +280,6 @@ if __name__ == "__main__":
 
     # move files to subfolders
     print("Moving files to subfolders...")
-    move_to_subfolders(gdf, processed_data_folder)
+    move_to_subfolders(gdf, processed_data_folder, ".png")
 
     print("Finished.")
-
-
-# %%

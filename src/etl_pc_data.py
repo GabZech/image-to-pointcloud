@@ -76,8 +76,21 @@ if __name__ == "__main__":
 
     #tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
     # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-    metadata = pd.read_csv(f"{data_folder}tiles_sample_pcs.csv")
-    tile_names = metadata["Kachelname"]
+    gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
+
+    metadata_img = gpd.read_file(gdf_filename)
+    tiles_img = metadata_img["kachelname"].unique().tolist()
+
+    metadata_pc = pd.read_csv(f"{data_folder}tiles_sample_pcs.csv")
+    #tile_pc = metadata_pc["kachelname"].unique()
+    tile_names = []
+
+    metadata = pd.DataFrame()
+    coords = list(map(extract_coords_tilename, tiles_img))
+    for i in range(len(coords)):
+        x, y = coords[i][0], coords[i][1]
+        tile = metadata_pc[metadata_pc["Kachelname"].str.contains(f"{x}_{y}")]
+        tile_names.append(tile["Kachelname"].values[0])
 
     # 2. Download and read pointclouds, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
@@ -170,6 +183,6 @@ if __name__ == "__main__":
     gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
     gdf = gpd.read_file(gdf_filename)
 
-    move_to_subfolders(gdf, processed_data_folder)
+    move_to_subfolders(gdf, processed_data_folder, ".json")
 
     print("Finished.")
