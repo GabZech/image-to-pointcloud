@@ -52,7 +52,15 @@ def download_metadata(raw_data_folder, metadata_filename, url_metadata, skiprows
 
 
 def prepare_building_data(tile_name, coords):
-    """Prepares building data from given tile name"""
+    """Prepares building data from given tile name
+
+    Args:
+        tile_name (str): name of tile
+        coords (tuple): coordinates of tile image
+
+    Returns:
+        gpd.GeoDataFrame: geopandas dataframe containing building shapes and information
+    """
     gdf_temp = download_building_data(coords, crs='EPSG:25832')
     gdf_temp["kachelname"] = tile_name
 
@@ -125,16 +133,24 @@ def download_building_data(coords:tuple, crs='EPSG:25832') -> gpd.GeoDataFrame:
     df = pd.DataFrame.from_records(building_shapefiles)
 
     # return geopandas dataframe for input that can be passed to the mask generation
-    gdf = gpd.GeoDataFrame(df, crs=crs)
+    try:
+        gdf = gpd.GeoDataFrame(df, crs=crs)
+        return gdf
+    except ValueError:
+        print(f"No buildings found in tile with coordinates {coords}")
 
-    return gdf
 
 def get_credium_metadata(gml_id, sub_key):
-    """Downloads metadata for a given gml_id from credium api"""
-    try:
-        # gml_id = "DENW25AL00006grQ"
-        # from creds import sub_key
+    """Downloads metadata for a given gml_id from credium api
 
+    Args:
+        gml_id (str): gml_id of building
+        sub_key (str): credium api subscription key
+
+    Returns:
+        pd.DataFrame: dataframe containing metadata
+    """
+    try:
         url = f"https://credium-api.azure-api.net/dev/data-product/base/latest//{gml_id}"
 
         hdr ={
@@ -149,10 +165,6 @@ def get_credium_metadata(gml_id, sub_key):
         response = urllib.request.urlopen(req)
 
         s = str(response.read(),'utf-8')
-
-        # # load json data from file
-        # with open('sample.json', 'r') as s:
-        #     jdata = json.load(s)
 
         jdata = json.loads(s)
 
@@ -185,7 +197,6 @@ def get_credium_metadata(gml_id, sub_key):
         df_base = pd.DataFrame(jdata, index=[0])
         df_base = df_base[["hasSolar", "solarProbability", "dormerCount", "googleLink", "crediumViewerLink"]]
         df = pd.concat([df, df_base], axis=1)
-
 
         return df
 

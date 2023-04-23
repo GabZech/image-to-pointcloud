@@ -1,6 +1,6 @@
+import os
 import re
 import shutil
-import os
 
 import geopandas as gpd
 import pandas as pd
@@ -67,28 +67,28 @@ def extract_building_id(input_string) -> str:
         return
 
 
-def move_to_subfolders(gdf, processed_data_folder, format):
+def move_to_subfolders(gdf, roof_types, processed_data_folder, format):
+    """Moves files to subfolders based on roof type
 
-    saddle_roofs = gdf[gdf["roofType"] == "Saddle Roof"].building_id.to_list()
-    tent_roofs = gdf[gdf["roofType"] == "Tent Roof"].building_id.to_list()
-    flat_roofs = gdf[gdf["roofType"] == "Flat Roof"].building_id.to_list()
+    Args:
+        gdf (gpd.GeoDataFrame): geodataframe containing building data
+        roof_types (list): list of roof types
+        processed_data_folder (str): path to processed data folder
+        format (str): file format
 
-    saddle_dir = f"{processed_data_folder}saddle_roofs/"
-    tent_dir = f"{processed_data_folder}tent_roofs/"
-    flat_dir = f"{processed_data_folder}flat_roofs/"
+    Returns:
+        None
+    """
+    for type in roof_types:
+        roof_dir = f"{processed_data_folder}{type}/"
+        create_dirs([roof_dir])
 
-    create_dirs([saddle_dir, tent_dir, flat_dir])
+        length = len(format)
 
-    length = len(format)
-
-    for file in os.listdir(processed_data_folder):
-        if file.endswith(format):
-            try:
-                if file[:-length] in saddle_roofs:
-                    shutil.move(f"{processed_data_folder}{file}", f"{saddle_dir}{file}")
-                elif file[:-length] in tent_roofs:
-                    shutil.move(f"{processed_data_folder}{file}", f"{tent_dir}{file}")
-                elif file[:-length] in flat_roofs:
-                    shutil.move(f"{processed_data_folder}{file}", f"{flat_dir}{file}")
-            except Exception as e:
-                print(f"Could not move file {file} to subfolder ({e})")
+        for file in os.listdir(processed_data_folder):
+            if file.endswith(format):
+                try:
+                    if file[:-length] in gdf[gdf["roofType"] == type].building_id.to_list():
+                        shutil.move(f"{processed_data_folder}{file}", roof_dir)
+                except Exception as e:
+                    print(f"Could not move file {file} to subfolder ({e})")
