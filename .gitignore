@@ -1,11 +1,10 @@
-data/raw/images/*.tiff
-data/processed/images/
-data/processed/pcs/
-data/raw/pcs/*.laz
-data/processed/pcs/*.las
+data/*
+!data/3dm_nw.csv
+!data/dop_nw.csv
+!data/tiles_merged.csv
+
 dev-commands.txt
 datasets/
-data/raw/images/dop_nw.csv
 PolyFit/
 creds.py
 run*/
