@@ -3,14 +3,14 @@
 
 # filters
 building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
-#roof_types = ["Saddle Roof", "Tent Roof", "Flat Roof"]
+roof_types = {"Flat Roof": 1, "Saddle Roof": 2, "Tent Roof": 4, "Walmdach": 4, "Hipped Roof": 4}
 dormer_count = 0 # number of dormers that a building must have to be kept.
-#roof_surface_counts = [1, 2, 4]
-has_solar = False
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
+n_tiles = 800 # number of tiles to go through
+#max_time_diff = 100 # maximum time difference (in days) between the acquisition date of the image and pointcloud.
 
 # directories
-run = "run2"
+run = "low_diff"
 data_folder = "data/"
 raw_data_folder = f"{data_folder}raw/images/"
 processed_metadata_folder = f"{data_folder}{run}/processed/"
@@ -21,7 +21,6 @@ rewrite_download=False # if True, metadata and tiles will be downloaded again, e
 rewrite_processing=True # if True, images of individual buildings will be created again, even if they already exist
 
 name_id_only = True # if True, only the building id will be used when saving the image name. If False, the building id and the building type will be used as image name.
-
 
 ### IMPORTS ###
 
@@ -59,7 +58,6 @@ def read_convert_save_tile(tile_name, base_url, save_folder) -> None:
     save_path = f"{save_folder}tile_temporary.tiff"
 
     # read image
-
     with rasterio.open(img_url, "r") as src:
 
         # keep only RGB channels
@@ -179,19 +177,14 @@ if __name__ == "__main__":
 
     create_dirs([raw_data_folder, processed_data_folder])
 
-    # 1. Download and read metadata
-    #metadata_filename = "dop_nw.csv"
+    # 1. Read metadata
+    metadata = pd.read_csv("data/tiles_merged.csv")
+    #metadata = metadata[metadata["diff"] < max_time_diff]
 
-    # download_metadata(raw_data_folder,
-    #                 metadata_filename,
-    #                 url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
-    #                 skiprows=5,
-    #                 rewrite_download=rewrite_download)
-    # tile_names = ["dop10rgbi_32_375_5666_1_nw_2021", "dop10rgbi_32_438_5765_1_nw_2022"] # TEMPORARY
-    # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-
-    metadata = pd.read_csv(f"{data_folder}tiles_sample_img.csv")
-    tile_names = metadata["Kachelname"]
+    # shuffle metadata
+    metadata = metadata.sample(frac=1, random_state=42)
+    metadata = metadata.head(n_tiles)
+    tile_names = metadata["Kachelname_img"]
 
     # 2. Download and read images, footprints and building information
     gdf = gpd.GeoDataFrame()
@@ -207,8 +200,8 @@ if __name__ == "__main__":
             gdf_temp = prepare_building_data(tile_name, coords)
             gdf_temp = remove_buildings_outside_tile(gdf_temp, coords)
             gdf = read_concat_gdf(gdf, gdf_temp)
-        except ValueError:
-            print(f"Could not get building data for tile {tile_name}. Coordinates {coords} likely outside of Germany. Skipping.")
+        except Exception as e:
+            continue
 
     # filter out buildings that are not of interest
     gdf = filter_buildings(gdf, type=building_types, min_area=min_area)
@@ -228,6 +221,7 @@ if __name__ == "__main__":
         count -= 1
         if count in range:
             print(f"Remaining buildings: {count}")
+
     # concatenate all dataframes in dfs list into a single dataframe
     gdf_credium = pd.concat(dfs, ignore_index=True)
 
@@ -236,27 +230,28 @@ if __name__ == "__main__":
     gdf["building_id"] = gdf["id"].apply(extract_building_id)
 
     # apply further filters based on credium data
-    gdf = gdf[gdf["hasSolar"] == has_solar]
     gdf = gdf[gdf["dormerCount"] == dormer_count]
-    gdf_saddle = gdf[(gdf["roofType"] == "Saddle Roof") & (gdf["roofSurfaceCount"] == 2)]
-    gdf_tent = gdf[(gdf["roofType"] == "Tent Roof") & (gdf["roofSurfaceCount"] == 4)]
-    gdf_flat = gdf[(gdf["roofType"] == "Flat Roof") & (gdf["roofSurfaceCount"] == 1)]
-    gdf = pd.concat([gdf_saddle, gdf_tent, gdf_flat], ignore_index=True)
+
+    gdf_ = gpd.GeoDataFrame()
+    for roof_type in list(roof_types.keys()):
+        gdf_roof = gdf[(gdf["roofType"] == roof_type) & (gdf["roofSurfaceCount"] == roof_types[roof_type])]
+        gdf_ = pd.concat([gdf_, gdf_roof], ignore_index=True)
 
     # save metadata to file
     gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
-    gdf["roofSurfaces"] = gdf["roofSurfaces"].astype(str)
-    gdf.to_file(gdf_filename, driver="GeoJSON")
+    gdf_["roofSurfaces"] = gdf_["roofSurfaces"].astype(str)
+    gdf_.to_file(gdf_filename, driver="GeoJSON")
 
-    print(f"\nFound {len(gdf)} buildings to be processed. Saved metadata to {gdf_filename}")
+    print(f"\nFound {len(gdf_)} buildings to be processed. Saved metadata to {gdf_filename}")
 
 #%%
 if __name__ == "__main__":
     # 3. Extract images of individual buildings
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
-    #gdf = gpd.read_file(gdf_filename)
+    gdf = gpd.read_file(gdf_filename)
 
+    tile_names = gdf["kachelname"].unique()
     count_tiles = len(tile_names)
     count_excluded = 0
 
@@ -280,6 +275,6 @@ if __name__ == "__main__":
 
     # move files to subfolders
     print("Moving files to subfolders...")
-    move_to_subfolders(gdf, processed_data_folder, ".png")
+    move_to_subfolders(gdf, roof_types.keys(), processed_data_folder, ".png")
 
     print("Finished.")

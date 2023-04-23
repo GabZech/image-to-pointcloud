@@ -1,8 +1,10 @@
 #%%
 ### GOBAL VARIABLES ###
 
+roof_types = ["Flat Roof", "Saddle Roof", "Tent Roof"]
+
 #directories
-run = "run2"
+run = "all"
 data_folder = "data/"
 raw_data_folder = f"{data_folder}raw/images/"
 processed_metadata_folder = f"{data_folder}{run}/processed/"
@@ -19,6 +21,7 @@ rewrite_processing=False # if True, images of individual buildings will be creat
 import json
 import os
 import urllib.request
+import shutil
 
 import pdal
 import numpy as np
@@ -59,38 +62,38 @@ def create_pdal_pipeline(polygon, tile_file):
     return pipeline
 
 #%%
-### RUN CODE ###
 
 if __name__ == "__main__":
 
     create_dirs([raw_data_folder, processed_data_folder])
 
-    # 1. Download and read metadata
-    # metadata_filename = "3dm_nw.csv"
+    # 1. Read metadata
 
-    # download_metadata(raw_data_folder,
-    #                 metadata_filename,
-    #                 url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/3dm_meta.zip",
-    #                 skiprows = 6,
-    #                 rewrite_download=rewrite_download)
+    metadata_img = gpd.GeoDataFrame()
+    for f in os.listdir(processed_metadata_folder):
+        if f.startswith("buildings_metadata"):
+            print(f"Found {f}")
+            metadata_img_ = gpd.read_file(f"{processed_metadata_folder}/{f}")
+            metadata_img = pd.concat([metadata_img, metadata_img_])
 
-    #tile_names = ["3dm_32_375_5666_1_nw", "3dm_32_438_5765_1_nw"] # TEMPORARY
-    # metadata = read_metadata(tile_names, raw_data_folder, metadata_filename) # TEMPORARY
-    gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
+    sub_dirs = next(os.walk(f"{processed_metadata_folder}/images"))[1]
 
-    metadata_img = gpd.read_file(gdf_filename)
+    # get list of buildings based on images
+    images = []
+    for sub_dir in sub_dirs:
+        if sub_dir != "check":
+            # list all files in sub_dir
+            [images.append(f[:-4]) for f in os.listdir(f"{processed_metadata_folder}/images/{sub_dir}")]
+
+    # filter gdf to only include found images
+    metadata_img = metadata_img[metadata_img["building_id"].isin(images)]
+
     tiles_img = metadata_img["kachelname"].unique().tolist()
 
-    metadata_pc = pd.read_csv(f"{data_folder}tiles_sample_pcs.csv")
-    #tile_pc = metadata_pc["kachelname"].unique()
-    tile_names = []
+    metadata_all = pd.read_csv(f"{data_folder}tiles_merged.csv")
+    metadata_all = metadata_all[metadata_all["Kachelname_img"].isin(tiles_img)]
+    tile_names = metadata_all["Kachelname_pc"].unique().tolist()
 
-    metadata = pd.DataFrame()
-    coords = list(map(extract_coords_tilename, tiles_img))
-    for i in range(len(coords)):
-        x, y = coords[i][0], coords[i][1]
-        tile = metadata_pc[metadata_pc["Kachelname"].str.contains(f"{x}_{y}")]
-        tile_names.append(tile["Kachelname"].values[0])
 
     # 2. Download and read pointclouds, footprints and building information
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/hm/3dm_l_las/3dm_l_las/"
@@ -126,7 +129,6 @@ if __name__ == "__main__":
         # keep only buildings for which there are images in processed/images
         gdf_temp["building_id"] = gdf_temp["id"].apply(extract_building_id)
         gdf_temp = gdf_temp[gdf_temp["building_id"].isin(buildings)]
-        # gdf = read_concat_gdf(gdf, gdf_temp)
 
         # 3. Extract pointcloud of individual buildings
         geometries = []
@@ -180,9 +182,22 @@ if __name__ == "__main__":
     # move files to subfolders
     print("Moving files to subfolders...")
 
-    gdf_filename = f"{processed_metadata_folder}buildings_metadata.json"
-    gdf = gpd.read_file(gdf_filename)
+    for dir in os.listdir(processed_imgs_folder):
+        if dir != "check":
+            for file in os.listdir(f"{processed_imgs_folder}/{dir}"):
+                building_id = file.split(".")[0]
+                try:
+                    shutil.move(f"{processed_data_folder}{building_id}.json", f"{processed_data_folder}{dir}/{building_id}.json")
+                except FileNotFoundError:
+                    try:
+                        os.remove(f"{processed_imgs_folder}/{dir}/{building_id}.png")
+                    except FileNotFoundError:
+                        continue
+                    try:
+                        os.remove(f"{processed_data_folder}{building_id}.json")
+                    except FileNotFoundError:
+                        continue
 
-    move_to_subfolders(gdf, processed_data_folder, ".json")
+                    print(f"File {building_id}.json not found. Deleted both png and json files.")
 
     print("Finished.")
