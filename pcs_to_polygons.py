@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 #Test on this 50520918
 #saddle_331119023
 pointsList=[]
-with open('data/finetuning_saddle_only/test/annotation/131936530.json') as f:
+with open('data/finetuning_saddle_only/test/annotation/332437499.json') as f:
     name=29206935
     for jsonObj in f:
         pt_coord=json.loads(jsonObj)
@@ -105,7 +105,7 @@ import matplotlib.pyplot as plt
 import os
 
 pointsList=[]
-with open('data/finetuning_saddle_only/test_jsons/131936530.json') as f:
+with open('data/finetuning_saddle_only/test_jsons/332437499.json') as f:
     name=29206935
     for jsonObj in f:
         pt_coord=json.loads(jsonObj)
@@ -143,12 +143,12 @@ for i in range(max_plane_idx):
     print("pass",i,"/",max_plane_idx,"done.")
 
     
-    key=name
-    pane= "roof_pane_" + str(i+1)
-    pts=np.asarray(segments[i]).tolist()
-    vector=[a,b,c,d]
-    inclination=angle
-    roof.update=({"id":key,"pane":pane, "pts":pts, "vector":vector, "inclination":inclination}	)
+    # key=name
+    # pane= "roof_pane_" + str(i+1)
+    # pts=np.asarray(segments[i]).tolist()
+    # vector=[a,b,c,d]
+    # inclination=angle
+    # roof.update=({"id":key,"pane":pane, "pts":pts, "vector":vector, "inclination":inclination}	)
 
 # roof.get('inclination')
 
@@ -216,93 +216,18 @@ for filename in os.listdir(labels_folder):
         #print("pass",i,"/",max_plane_idx,"done.")
 
     
-        pane= "roof_pane_" + str(i+1)
+        # pane= "roof_pane_" + str(i+1)
     
-        pts=np.asarray(segments[i]).tolist()
-        vector=[a,b,c,d]
-        inclination=angle
-        roof.update({"id":id,"pane":pane, "pts":pts, "vector":vector, "inclination":inclination})	
+        # pts=np.asarray(segments[i]).tolist()
+        # vector=[a,b,c,d]
+        # inclination=angle
+        # roof.update({"id":id,"pane":pane, "pts":pts, "vector":vector, "inclination":inclination})	
 
     # roof.get('inclination')
 
     # labels = np.array(rest.cluster_dbscan(eps=0.05, min_points=5))
-    # max_label = labels.max()
-    if j%5==0:
-        print(j,"buildings done")
+    # # max_label = labels.max()
+    # if j%5==0:
+    #     print(j,"buildings done")
  
-# %%
-import numpy as np
-import json
-import open3d as o3d
-import os
-import pandas as pd
 
-def angle_df(file,s):
-
-    filename = file.split(".")[0].split("/")[-1]
-
-    pointsList=[]
-    with open(file) as f:
-     
-     for jsonObj in f:
-        pt_coord=json.loads(jsonObj)
-        pointsList.append(pt_coord['lidar'])
-
-    # print(pointsList)
-    points=np.asarray(pointsList, dtype=np.float32)
-    points=points[0,:,:]
-    pcd = o3d.geometry.PointCloud()
-    pcd.points=o3d.utility.Vector3dVector(points)
-
-
-
-    segment_models={}
-    segments={}
-    
-
-    rest=pcd
-    d_threshold=100
-    entry=pd.DataFrame()
-    for i in range(s):
-        #colors = plt.get_cmap("tab20")(i)
-        segment_models[i], inliers = rest.segment_plane(distance_threshold=15,ransac_n=3,num_iterations=1000)
-        [a, b, c, d] = segment_models[i]
-    #print("Displaying pointcloud with planar points in roof segment no.",i+1,f"\n Plane equation: {a:.2f}x + {b:.2f}y + {c:.2f}z + {d:.2f} = 0")
-        angle=round(np.arccos(c)*180/np.pi%90,2)
-    #print("Inclination=",angle, "°")
-        segments[i]=rest.select_by_index(inliers)
-        labels = np.array(segments[i].cluster_dbscan(eps=d_threshold*100, min_points=10))
-        candidates=[len(np.where(labels==j)[0]) for j in np.unique(labels)]
-        best_candidate=int(np.unique(labels)[np.where(candidates== np.max(candidates))[0]])
-    #segments[i].paint_uniform_color(list(colors[:3]))
-        rest = rest.select_by_index(inliers, invert=True) + segments[i].select_by_index(list(np.where(labels!=best_candidate)[0]))
-        segments[i]=segments[i].select_by_index(list(np.where(labels== best_candidate)[0]))
-    #print("pass",i,"/",max_plane_idx,"done.")
-        vector=[]
-        vector.append([a,b,c])
-        
-        entry_=pd.DataFrame()
-        # print(i)
-        # print(filename)
-        entry_["building_id"] = "WHATEVER"
-        # print(entry_["building_id"])
-        # print(entry_)
-        entry_["pane"]=i+1
-        entry_["normal_vector"]=vector
-        # entry_["normal_vector_x"]=float(a)
-        # entry_["normal_vector_y"]=float(b)
-        # entry_["normal_vector_z"]=float(c)
-        entry_["inclination"]=angle
-        
-        entry=pd.concat([entry,entry_], axis=0)
-    #pts=np.asarray(segments[i]).tolist()
-    
-    return entry   
-
-# df=pd.DataFrame()
-building="data/finetuning_saddle_only/test/annotation/2516390.json"
-
-df=angle_df(building,2)
-print(df)
-
-# %%
