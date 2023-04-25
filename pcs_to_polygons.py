@@ -105,7 +105,7 @@ import matplotlib.pyplot as plt
 import os
 
 pointsList=[]
-with open('data/finetuning_saddle_only/test_jsons/332437499.json') as f:
+with open('data/finetuning_tent_only/res_jsons/14993289.json') as f:
     name=29206935
     for jsonObj in f:
         pt_coord=json.loads(jsonObj)
@@ -117,7 +117,7 @@ points=points[0,:,:]
 pcd = o3d.geometry.PointCloud()
 pcd.points=o3d.utility.Vector3dVector(points)
 
-max_plane_idx=2
+max_plane_idx=4
 
 segment_models={}
 segments={}
