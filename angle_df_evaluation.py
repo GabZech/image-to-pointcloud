@@ -258,8 +258,36 @@ inclinations_eval = inclinations_eval.drop('normal_vector3_pd', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_vector4_gt', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_vector4_pd', axis=1)
 
+inclinations_eval['t_gt'] = inclinations_eval.apply(lambda x: [x['normal_array1_gt'], x['normal_array2_gt'], x['normal_array3_gt'], x['normal_array4_gt']], axis=1)
+
+inclinations_eval['t_pd'] = inclinations_eval.apply(lambda x: [x['normal_array1_pd'], x['normal_array2_pd'], x['normal_array3_pd'], x['normal_array4_pd']], axis=1)
+
+inclinations_eval = inclinations_eval.drop('normal_array1_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array2_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array1_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array2_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array3_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array3_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array4_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_array4_pd', axis=1)
+
+# for index,row in inclinations_eval.iterrows():
+#     for i in range(4):
+#         for j in range(i,4):
+#             inclinations_eval["dot_product"+str(i+1)+"_"+str(j+1)]=0
+
+
 for index,row in inclinations_eval.iterrows():
-    inclinations_eval["gt_tensor"]=[[row["normal_array1_gt"]],[row["normal_array2_gt"]],[row["normal_array3_gt"]],[row["normal_array4_gt"]]]
+    max=-100
+   
+    for i in range(4):
+        for j in range(4):
+           
+            if np.dot(row['t_gt'][i],row['t_pd'][j])>max:
+                max=np.dot(row['t_gt'][i],row['t_pd'][j])
+                inclinations_eval.loc[index, "err"+str(i+1)+"_"+str(j+1)] = abs(row[f"inclination{j+1}_pd"]-row[f"inclination{i+1}_gt"])
+                
+
 # def dot_product(row):
 #     return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
 
@@ -298,4 +326,16 @@ for index,row in inclinations_eval.iterrows():
 # plt.show()
 # count = (inclinations_eval['err'] > 5).sum()
 # print(count)
+# %%
+
+# %%
+
+# %%
+
+# %%
+
+# %%
+
+# %%
+
 # %%
