@@ -1,4 +1,4 @@
-#%%
+#%% Error Evaluation for saddle roofs
 import numpy as np
 import json
 import open3d as o3d
@@ -104,6 +104,10 @@ inclinations_eval["normal_array1_gt"]=inclinations_eval["normal_vector1_gt"].app
 inclinations_eval["normal_array1_pd"]=inclinations_eval["normal_vector1_pd"].apply(np.array)
 inclinations_eval["normal_array2_gt"]=inclinations_eval["normal_vector2_gt"].apply(np.array)
 inclinations_eval["normal_array2_pd"]=inclinations_eval["normal_vector2_pd"].apply(np.array)
+inclinations_eval = inclinations_eval.drop('normal_vector1_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector2_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector1_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector2_pd', axis=1)
 def dot_product(row):
     return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
 
@@ -124,7 +128,7 @@ inclinations_eval["err1"].hist(bins=20)
 plt.show()
 # count = (inclinations_eval['err'] > 5).sum()
 # print(count)
-#%%
+#%% Error Evaluation for tent roofs
 import numpy as np
 import json
 import open3d as o3d
@@ -179,11 +183,11 @@ def angle_df(file,s):
         
         
         entry_["building_id"] = [filename]
-        entry_["pane"]=[i+1]
-        entry_["normal_vector"]=vector
-        entry_["inclination"]=angle
+        #entry_["pane"]=[i+1]
+        entry_["normal_vector"+str(i+1)]=vector
+        entry_["inclination"+str(i+1)]=angle
         
-        entry=pd.concat([entry,entry_], axis=0)
+    entry=pd.concat([entry,entry_], axis=0)
     #pts=np.asarray(segments[i]).tolist()
     
     return entry   
@@ -192,7 +196,7 @@ def angle_df(file,s):
 
 
 labels_folder = 'data/finetuning_tent_only/test/annotation'
-predictions_folder='data/finetuning_tent_only/res_jsons'
+predictions_folder='data/finetuning_tent_only/test_jsons'
 inclination_gt=pd.DataFrame()
 inclination_pd=pd.DataFrame()
 
@@ -205,7 +209,14 @@ for filename in os.listdir(labels_folder):
     #if j%5==0:
      #   print(j,"buildings done")
     inclination_gt=pd.concat([inclination_gt,df],axis=0)
-inclination_gt.rename(columns={"inclination": "inclination_gt"}, inplace=True)
+inclination_gt.rename(columns={"inclination1": "inclination1_gt"}, inplace=True)
+inclination_gt.rename(columns={"normal_vector1": "normal_vector1_gt"}, inplace=True)
+inclination_gt.rename(columns={"inclination2": "inclination2_gt"}, inplace=True)
+inclination_gt.rename(columns={"normal_vector2": "normal_vector2_gt"}, inplace=True)
+inclination_gt.rename(columns={"inclination3": "inclination3_gt"}, inplace=True)
+inclination_gt.rename(columns={"normal_vector3": "normal_vector3_gt"}, inplace=True)
+inclination_gt.rename(columns={"inclination4": "inclination4_gt"}, inplace=True)
+inclination_gt.rename(columns={"normal_vector4": "normal_vector4_gt"}, inplace=True)
 # import matplotlib.pyplot as plt
 # inclination_df["inclination"].hist(bins=20)
 # plt.show()
@@ -217,12 +228,74 @@ for filename in os.listdir(predictions_folder):
     #if j%5==0:
      #   print(j,"buildings done")
     inclination_pd=pd.concat([inclination_pd,df],axis=0)
-inclination_pd.rename(columns={"inclination": "inclination_pd"}, inplace=True)
-inclinations_eval = pd.merge(inclination_gt, inclination_pd, on=['building_id', 'pane'], how='inner').reset_index(drop=True)
-inclinations_eval["err"]=abs(inclinations_eval["inclination_gt"]-inclinations_eval["inclination_pd"])
-import matplotlib.pyplot as plt
-inclinations_eval["err"].hist(bins=20)
-plt.show()
-count = (inclinations_eval['err'] > 5).sum()
-print(count)
+inclination_pd.rename(columns={"inclination1": "inclination1_pd"}, inplace=True)
+inclination_pd.rename(columns={"normal_vector1": "normal_vector1_pd"}, inplace=True)
+inclination_pd.rename(columns={"inclination2": "inclination2_pd"}, inplace=True)
+inclination_pd.rename(columns={"normal_vector2": "normal_vector2_pd"}, inplace=True)
+inclination_pd.rename(columns={"inclination3": "inclination3_pd"}, inplace=True)
+inclination_pd.rename(columns={"normal_vector3": "normal_vector3_pd"}, inplace=True)
+inclination_pd.rename(columns={"inclination4": "inclination4_pd"}, inplace=True)
+inclination_pd.rename(columns={"normal_vector4": "normal_vector4_pd"}, inplace=True)
+
+inclinations_eval = pd.merge(inclination_gt, inclination_pd, on=['building_id'], how='inner').reset_index(drop=True)
+
+inclinations_eval["normal_array1_gt"]=inclinations_eval["normal_vector1_gt"].apply(np.array)
+inclinations_eval["normal_array2_gt"]=inclinations_eval["normal_vector2_gt"].apply(np.array)
+inclinations_eval["normal_array3_gt"]=inclinations_eval["normal_vector3_gt"].apply(np.array)
+inclinations_eval["normal_array4_gt"]=inclinations_eval["normal_vector4_gt"].apply(np.array)
+
+inclinations_eval["normal_array1_pd"]=inclinations_eval["normal_vector1_pd"].apply(np.array)
+inclinations_eval["normal_array2_pd"]=inclinations_eval["normal_vector2_pd"].apply(np.array)
+inclinations_eval["normal_array3_pd"]=inclinations_eval["normal_vector3_pd"].apply(np.array)
+inclinations_eval["normal_array4_pd"]=inclinations_eval["normal_vector4_pd"].apply(np.array)
+
+inclinations_eval = inclinations_eval.drop('normal_vector1_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector2_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector1_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector2_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector3_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector3_pd', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector4_gt', axis=1)
+inclinations_eval = inclinations_eval.drop('normal_vector4_pd', axis=1)
+
+for index,row in inclinations_eval.iterrows():
+    inclinations_eval["gt_tensor"]=[[row["normal_array1_gt"]],[row["normal_array2_gt"]],[row["normal_array3_gt"]],[row["normal_array4_gt"]]]
+# def dot_product(row):
+#     return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
+
+# inclinations_eval["dot_product"]= inclinations_eval.apply(dot_product, axis=1)
+
+
+
+
+# for index,row in inclinations_eval.iterrows():
+#     if row["dot_product"]>0.8:
+#         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination1_pd"])
+        
+#     else: 
+#         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination2_pd"])
+#         inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination1_pd"])
+
+
+
+# inclination_gt.rename(columns={"inclination": "inclination_gt"}, inplace=True)
+# # import matplotlib.pyplot as plt
+# # inclination_df["inclination"].hist(bins=20)
+# # plt.show()
+# df=pd.DataFrame()
+# for filename in os.listdir(predictions_folder):
+    
+#     if filename.endswith('.json'):
+#         df=angle_df(f"{predictions_folder}/{filename}",4)
+#     #if j%5==0:
+#      #   print(j,"buildings done")
+#     inclination_pd=pd.concat([inclination_pd,df],axis=0)
+# inclination_pd.rename(columns={"inclination": "inclination_pd"}, inplace=True)
+# inclinations_eval = pd.merge(inclination_gt, inclination_pd, on=['building_id', 'pane'], how='inner').reset_index(drop=True)
+# inclinations_eval["err"]=abs(inclinations_eval["inclination_gt"]-inclinations_eval["inclination_pd"])
+# import matplotlib.pyplot as plt
+# inclinations_eval["err"].hist(bins=20)
+# plt.show()
+# count = (inclinations_eval['err'] > 5).sum()
+# print(count)
 # %%
