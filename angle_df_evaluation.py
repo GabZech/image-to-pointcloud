@@ -11,7 +11,7 @@ def angle_df(file,s):
 
     pointsList=[]
     with open(file) as f:
-     
+
      for jsonObj in f:
         pt_coord=json.loads(jsonObj)
         pointsList.append(pt_coord['lidar'])
@@ -26,12 +26,12 @@ def angle_df(file,s):
 
     segment_models={}
     segments={}
-    
+
 
     rest=pcd
     d_threshold=100
     entry=pd.DataFrame()
-   
+
     entry_=pd.DataFrame()
     for i in range(s):
         #colors = plt.get_cmap("tab20")(i)
@@ -50,17 +50,17 @@ def angle_df(file,s):
     #print("pass",i,"/",max_plane_idx,"done.")
         vector=[]
         vector.append([a,b,c])
-        
-        
+
+
         entry_["building_id"] = [filename]
         #entry_["pane"]=[i+1]
         entry_["normal_vector"+str(i+1)]=vector
         entry_["inclination"+str(i+1)]=angle
-        
+
     entry=pd.concat([entry,entry_], axis=0)
     #pts=np.asarray(segments[i]).tolist()
-    
-    return entry   
+
+    return entry
 
 
 
@@ -73,7 +73,7 @@ inclination_pd=pd.DataFrame()
 inclinations_eval=pd.DataFrame()
 df=pd.DataFrame()
 for filename in os.listdir(labels_folder):
-    
+
     if filename.endswith('.json'):
         df=angle_df(f"{labels_folder}/{filename}",2)
     #if j%5==0:
@@ -88,7 +88,7 @@ inclination_gt.rename(columns={"normal_vector2": "normal_vector2_gt"}, inplace=T
 # plt.show()
 df=pd.DataFrame()
 for filename in os.listdir(predictions_folder):
-    
+
     if filename.endswith('.json'):
         df=angle_df(f"{predictions_folder}/{filename}",2)
     #if j%5==0:
@@ -116,7 +116,7 @@ for index,row in inclinations_eval.iterrows():
     if row["dot_product"]>0.8:
         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination1_pd"])
         inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination2_pd"])
-    else: 
+    else:
         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination2_pd"])
         inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination1_pd"])
 
@@ -141,7 +141,7 @@ def angle_df(file,s):
 
     pointsList=[]
     with open(file) as f:
-     
+
      for jsonObj in f:
         pt_coord=json.loads(jsonObj)
         pointsList.append(pt_coord['lidar'])
@@ -156,12 +156,12 @@ def angle_df(file,s):
 
     segment_models={}
     segments={}
-    
+
 
     rest=pcd
     d_threshold=100
     entry=pd.DataFrame()
-   
+
     entry_=pd.DataFrame()
     for i in range(s):
         #colors = plt.get_cmap("tab20")(i)
@@ -180,30 +180,30 @@ def angle_df(file,s):
     #print("pass",i,"/",max_plane_idx,"done.")
         vector=[]
         vector.append([a,b,c])
-        
-        
+
+
         entry_["building_id"] = [filename]
         #entry_["pane"]=[i+1]
         entry_["normal_vector"+str(i+1)]=vector
         entry_["inclination"+str(i+1)]=angle
-        
+
     entry=pd.concat([entry,entry_], axis=0)
     #pts=np.asarray(segments[i]).tolist()
-    
-    return entry   
+
+    return entry
 
 
 
 
-labels_folder = 'data/finetuning_tent_only/test/annotation'
-predictions_folder='data/finetuning_tent_only/test_jsons'
+labels_folder = r'C:\Users\zech011\OneDrive\datasets_thesis/finetuning_tent_only/test/annotation'
+predictions_folder=r'C:\Users\zech011\OneDrive\datasets_thesis/finetuning_tent_only/test_jsons'
 inclination_gt=pd.DataFrame()
 inclination_pd=pd.DataFrame()
 
 inclinations_eval=pd.DataFrame()
 df=pd.DataFrame()
 for filename in os.listdir(labels_folder):
-    
+
     if filename.endswith('.json'):
         df=angle_df(f"{labels_folder}/{filename}",4)
     #if j%5==0:
@@ -222,7 +222,7 @@ inclination_gt.rename(columns={"normal_vector4": "normal_vector4_gt"}, inplace=T
 # plt.show()
 df=pd.DataFrame()
 for filename in os.listdir(predictions_folder):
-    
+
     if filename.endswith('.json'):
         df=angle_df(f"{predictions_folder}/{filename}",4)
     #if j%5==0:
@@ -271,6 +271,7 @@ inclinations_eval = inclinations_eval.drop('normal_array3_pd', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_array4_gt', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_array4_pd', axis=1)
 
+
 # for index,row in inclinations_eval.iterrows():
 #     for i in range(4):
 #         for j in range(i,4):
@@ -278,15 +279,41 @@ inclinations_eval = inclinations_eval.drop('normal_array4_pd', axis=1)
 
 
 for index,row in inclinations_eval.iterrows():
-    max=-100
-   
+    s1=[]
+    s2=[]
+    s3=[]
+    s4=[]
+
     for i in range(4):
         for j in range(4):
-           
-            if np.dot(row['t_gt'][i],row['t_pd'][j])>max:
-                max=np.dot(row['t_gt'][i],row['t_pd'][j])
-                inclinations_eval.loc[index, "err"+str(i+1)+"_"+str(j+1)] = abs(row[f"inclination{j+1}_pd"]-row[f"inclination{i+1}_gt"])
-                
+
+            if i == 0:
+                s1.append(np.dot(row['t_gt'][i],row['t_pd'][j]))
+            elif i == 1:
+                s2.append(np.dot(row['t_gt'][i],row['t_pd'][j]))
+            elif i == 2:
+                s3.append(np.dot(row['t_gt'][i],row['t_pd'][j]))
+            elif i == 3:
+                s4.append(np.dot(row['t_gt'][i],row['t_pd'][j]))
+
+    for k, l in enumerate([s1,s2,s3,s4]):
+        k = k + 1
+        #print(k)
+        # get index of max value
+        max_index = l.index(np.asarray(l).max()) + 1
+        inclinations_eval.loc[index, f"err_{k}"] = abs(row[f"inclination{max_index}_pd"]-row[f"inclination{k}_gt"])
+
+            # if np.dot(row['t_gt'][i],row['t_pd'][j]):
+            #     max=np.dot(row['t_gt'][i],row['t_pd'][j])
+            #     inclinations_eval.loc[index, "err"+str(i+1)+"_"+str(j+1)] = abs(row[f"inclination{j+1}_pd"]-row[f"inclination{i+1}_gt"])
+
+#%%
+mean1 = inclinations_eval["err_1"].mean()
+mean2 = inclinations_eval["err_2"].mean()
+mean3 = inclinations_eval["err_3"].mean()
+mean4 = inclinations_eval["err_4"].mean()
+
+print((mean1+mean2+mean3+mean4)/4)
 
 # def dot_product(row):
 #     return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
@@ -299,8 +326,8 @@ for index,row in inclinations_eval.iterrows():
 # for index,row in inclinations_eval.iterrows():
 #     if row["dot_product"]>0.8:
 #         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination1_pd"])
-        
-#     else: 
+
+#     else:
 #         inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination2_pd"])
 #         inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination1_pd"])
 
@@ -312,7 +339,7 @@ for index,row in inclinations_eval.iterrows():
 # # plt.show()
 # df=pd.DataFrame()
 # for filename in os.listdir(predictions_folder):
-    
+
 #     if filename.endswith('.json'):
 #         df=angle_df(f"{predictions_folder}/{filename}",4)
 #     #if j%5==0:
