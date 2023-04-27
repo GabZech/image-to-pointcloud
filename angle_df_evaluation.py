@@ -1,3 +1,19 @@
+#%%
+
+buildings_to_exclude =[76222797, # not saddle
+                        56149218, # weird shape
+                        332437499, # 2 dormers
+                        103056683, # building badly cut
+                        17675858, # flat roof
+                        11914427, # two roofs, cropped to 1
+                        74606032, # building badly cut
+                        131539036, # has big extruding object
+                        17681408, # weird shape
+                        31244991, # has wall
+                        ]
+
+buildings_to_exclude = [str(x) for x in buildings_to_exclude]
+
 #%% Error Evaluation for saddle roofs
 import numpy as np
 import json
@@ -65,8 +81,8 @@ def angle_df(file,s):
 
 
 
-labels_folder = 'data/finetuning_saddle_only/test/annotation'
-predictions_folder='data/finetuning_saddle_only/test_jsons'
+labels_folder = r'C:\Users\zech011\OneDrive\datasets_thesis/finetuning_saddle_only/test/annotation'
+predictions_folder=r'C:\Users\zech011\OneDrive\datasets_thesis/finetuning_saddle_only/test_jsons'
 inclination_gt=pd.DataFrame()
 inclination_pd=pd.DataFrame()
 
@@ -108,26 +124,55 @@ inclinations_eval = inclinations_eval.drop('normal_vector1_gt', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_vector2_gt', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_vector1_pd', axis=1)
 inclinations_eval = inclinations_eval.drop('normal_vector2_pd', axis=1)
-def dot_product(row):
-    return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
 
-inclinations_eval["dot_product"]= inclinations_eval.apply(dot_product, axis=1)
 for index,row in inclinations_eval.iterrows():
-    if row["dot_product"]>0.8:
-        inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination1_pd"])
-        inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination2_pd"])
-    else:
-        inclinations_eval["err1"]=abs(inclinations_eval["inclination1_gt"]-inclinations_eval["inclination2_pd"])
-        inclinations_eval["err2"]=abs(inclinations_eval["inclination2_gt"]-inclinations_eval["inclination1_pd"])
+    # if row["building_id"] == "38747711":
+    #     print(row["building_id"])
+    s1=[]
+    s2=[]
 
-print(inclinations_eval["err1"].mean())
-print(inclinations_eval["err2"].mean())
-# inclinations_eval["err"]=abs(inclinations_eval["inclination_gt"]-inclinations_eval["inclination_pd"])
-import matplotlib.pyplot as plt
-inclinations_eval["err1"].hist(bins=20)
-plt.show()
-# count = (inclinations_eval['err'] > 5).sum()
-# print(count)
+    for i in range(2):
+        for j in range(2):
+
+            if i == 0:
+                s1.append(np.dot(row['normal_array1_gt'][i],row['normal_array1_pd'][j]))
+            elif i == 1:
+                s2.append(np.dot(row['normal_array2_gt'][i],row['normal_array2_pd'][j]))
+
+
+    for k, l in enumerate([s1,s2]):
+        k = k + 1
+        #print(k)
+        # get index of max value
+        max_index = l.index(np.asarray(l).max()) + 1
+        inclinations_eval.loc[index, f"err_{k}"] = abs(row[f"inclination{max_index}_pd"]-row[f"inclination{k}_gt"])
+
+                # if np.dot(row['t_gt'][i],row['t_pd'][j]):
+                #     max=np.dot(row['t_gt'][i],row['t_pd'][j])
+            #     inclinations_eval.loc[index, "err"+str(i+1)+"_"+str(j+1)] = abs(row[f"inclination{j+1}_pd"]-row[f"inclination{i+1}_gt"])
+
+mean1 = inclinations_eval["err_1"].mean()
+mean2 = inclinations_eval["err_2"].mean()
+
+
+print(f"Mean with all buildings: {(mean1+mean2)/2}")
+
+# remove buildings in the list above
+inclinations_eval = inclinations_eval[~inclinations_eval["building_id"].isin(buildings_to_exclude)]
+
+mean1 = inclinations_eval["err_1"].mean()
+mean2 = inclinations_eval["err_2"].mean()
+
+
+print(f"Mean with removed buildings: {(mean1+mean2)/2}")
+
+
+
+
+
+
+
+
 #%% Error Evaluation for tent roofs
 import numpy as np
 import json
@@ -279,6 +324,8 @@ inclinations_eval = inclinations_eval.drop('normal_array4_pd', axis=1)
 
 
 for index,row in inclinations_eval.iterrows():
+    # if row["building_id"] == "38747711":
+    #     print(row["building_id"])
     s1=[]
     s2=[]
     s3=[]
@@ -303,17 +350,26 @@ for index,row in inclinations_eval.iterrows():
         max_index = l.index(np.asarray(l).max()) + 1
         inclinations_eval.loc[index, f"err_{k}"] = abs(row[f"inclination{max_index}_pd"]-row[f"inclination{k}_gt"])
 
-            # if np.dot(row['t_gt'][i],row['t_pd'][j]):
-            #     max=np.dot(row['t_gt'][i],row['t_pd'][j])
+                # if np.dot(row['t_gt'][i],row['t_pd'][j]):
+                #     max=np.dot(row['t_gt'][i],row['t_pd'][j])
             #     inclinations_eval.loc[index, "err"+str(i+1)+"_"+str(j+1)] = abs(row[f"inclination{j+1}_pd"]-row[f"inclination{i+1}_gt"])
 
-#%%
 mean1 = inclinations_eval["err_1"].mean()
 mean2 = inclinations_eval["err_2"].mean()
 mean3 = inclinations_eval["err_3"].mean()
 mean4 = inclinations_eval["err_4"].mean()
 
-print((mean1+mean2+mean3+mean4)/4)
+print(f"Mean with all buildings: {(mean1+mean2+mean3+mean4)/4}")
+
+# remove buildings in the list above
+inclinations_eval = inclinations_eval[~inclinations_eval["building_id"].isin(buildings_to_exclude)]
+
+mean1 = inclinations_eval["err_1"].mean()
+mean2 = inclinations_eval["err_2"].mean()
+mean3 = inclinations_eval["err_3"].mean()
+mean4 = inclinations_eval["err_4"].mean()
+
+print(f"Mean with removed buildings: {(mean1+mean2+mean3+mean4)/4}")
 
 # def dot_product(row):
 #     return np.dot(row['normal_array1_gt'], row['normal_array1_pd'])
