@@ -1,22 +1,24 @@
 name: img2pc
 channels:
-  - open3d-admin
   - conda-forge
   - defaults
 dependencies:
   - python=3.8
-  - geopandas
-  - rasterio
-  - shapely
-  - pandas
-  - numpy
-  - laspy
-  - open3d
-  - python-pdal
   - gdal
-  - ipykernel
-  - torch
+  - pdal
+  - python-pdal
   - pip
-
   - pip:
-      - pdal==3.2.2
+      - open3d
+      - geopandas
+      - rasterio
+      - shapely
+      - pandas
+      - numpy
+      - laspy
+      - lazrs
+      - ipykernel
+      - torch
+      - torchvision
+      - matplotlib
+      - seaborn
