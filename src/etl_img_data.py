@@ -2,11 +2,11 @@
 ### GOBAL VARIABLES ###
 
 # filters
+n_tiles = 800 # number of tiles to go through
 building_types = ["Wohnhaus", "Wohngebäude mit Handel und Dienstleistungen", "Wohn- und Geschäftsgebäude"] # select building types to keep. All other building types will be removed.
 roof_types = {"Flat Roof": 1, "Saddle Roof": 2, "Tent Roof": 4, "Walmdach": 4, "Hipped Roof": 4}
 dormer_count = 0 # number of dormers that a building must have to be kept.
 min_area = 100 # area (in square meters) of buildings that will be kept. Buildings with smaller area will be removed.
-n_tiles = 800 # number of tiles to go through
 #max_time_diff = 100 # maximum time difference (in days) between the acquisition date of the image and pointcloud.
 
 # directories
@@ -244,8 +244,6 @@ if __name__ == "__main__":
 
     print(f"\nFound {len(gdf_)} buildings to be processed. Saved metadata to {gdf_filename}")
 
-#%%
-if __name__ == "__main__":
     # 3. Extract images of individual buildings
     base_url = "https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/"
 
