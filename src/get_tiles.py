@@ -1,11 +1,19 @@
-# %%
+#%%
+### GLOBAL VARIABLES
+
+output_file = "data/tiles_merged.csv"
+
+
+### IMPORTS ###
 import pandas as pd
 
 from functions_download import download_metadata
 from functions_process import extract_coords_tilename
 
-# %% Download metadata for tiles and find matching tiles
+# %%
+### RUN CODE ###
 
+# Download metadata for tiles and find matching tiles
 download_metadata(raw_data_folder="data/",
     metadata_filename="dop_nw.csv",
     url_metadata="https://www.opengeodata.nrw.de/produkte/geobasis/lusat/dop/dop_jp2_f10/dop_meta.zip",
@@ -43,7 +51,7 @@ merged["diff"] = abs((merged["Aktualitaet_img"] - merged["Aktualitaet_pc"]).dt.d
 # sort by difference
 merged = merged.sort_values(by="diff", ascending=True).reset_index(drop=True)
 
-merged.to_csv("data/tiles_merged.csv", index=False)
+merged.to_csv(output_file, index=False)
 
 #%% plot histogram of time differences
 import matplotlib.pyplot as plt
