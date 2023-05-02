@@ -4,7 +4,7 @@
 
 This repository contains scripts related to the collection and processing of image and pointcloud data from Geobasis NRW's open data portal. This data is used to fine-tune [Sat2PC](https://github.com/pittcps/sat2pc), a supervised, deep learning model that generates 3D pointclouds from 2D images of roofs developed by Yoones Rezaei & Stephen Lee. The generated pointclouds are then used to extract the angles of each roof surface for each individual roof.
 
-The aim of this work is thus to train a deep learning model capable of generating 3D pointclouds of buildings’ roofs **based solely on images of their rooftops**. If successful, such an approach would allow a more accurate estimation of the solar production potential of photovoltaic panels installed on top of buildings for areas in which no pointcloud data is available.
+The aim of this work is thus to train a deep learning model capable of generating 3D pointclouds of buildings’ roofs **based solely on images of their rooftops**. Such an approach allows for a more accurate estimation of the solar production potential of photovoltaic panels installed on top of buildings for areas in which no pointcloud data is available.
 
 This work is part of the master thesis of [Nassim Zuoeini](https://github.com/nassimzoueini) and [Gabriel Zech](https://github.com/GabZech) for the Master of Data Science for Public Policy at the Hertie School of Governance in Berlin.
 
@@ -39,5 +39,6 @@ All of the scripts are located in the `src` folder. We recommend opening and run
 ### Post model training
 5. [viz_losses.py](src/viz_losses.py) - Plots the losses for all model training and evaluation runs.
 6. [res_to_json.py](src/res_to_json.py) - Reads the results of the model predictions and converts them to json files.
-7. [angle_evaluation.py](src/angle_evaluation.py) - Reads the results of the model predictions and calculates the angles of each roof surface for each individual roof.
-8. [viz_pcs](src/viz_pcs.py) - Visualizes the pointcloud for a desired building.
+7. [pcs_to_planes.py](src/pcs_to_planes.py) - Performs iterative RANSAC and DBSCAN for plane detection and inclination calculation
+8. [angle_evaluation.py](src/angle_evaluation.py) - Reads the results of the model predictions and calculates the angles of each roof surface for each individual roof.
+9. [viz_pcs](src/viz_pcs.py) - Visualizes the pointcloud for a desired building.
